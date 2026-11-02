@@ -1,0 +1,160 @@
+// Prisma schema for "Hệ thống hiến máu cho sinh viên DUE"
+// Database: PostgreSQL
+//
+// Lưu ý bảo mật PII:
+// - CCCD KHÔNG bao giờ được lưu dạng plaintext. Ứng dụng mã hóa bằng AES-256-GCM
+//   tại server (xem src/lib/crypto.ts) trước khi ghi vào 3 cột:
+//   cccdCiphertext / cccdIv / cccdAuthTag.
+// - cccdHash là "blind index" (HMAC-SHA256) dùng để tra cứu/khớp CCCD khi OCR
+//   mà không cần giải mã toàn bộ bảng. Không thể suy ngược CCCD từ hash này.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  ORGANIZER
+  MEDICAL
+  ADMIN
+}
+
+/// Vòng đời hồ sơ hiến máu (3 cổng XOR sẽ chuyển trạng thái theo enum này)
+enum RegStatus {
+  PENDING // Vừa đăng ký, chờ duyệt hồ sơ cơ bản
+  APPROVED // XOR 2 đạt: tuổi >= 18 và cân nặng >= 45kg
+  REJECTED // XOR 2 không đạt
+  CHECKED_IN // Đã check-in tại chiến dịch (OCR CCCD)
+  ELIGIBLE // XOR 3 đạt: sức khỏe lâm sàng đạt, chờ lấy máu
+  HEALTH_CHECK_FAILED // XOR 3 không đạt
+  COMPLETED // Đã hiến máu xong
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum BloodType {
+  A
+  B
+  AB
+  O
+}
+
+// ---------------------------------------------------------------------------
+// MODELS
+// ---------------------------------------------------------------------------
+
+model User {
+  id       String @id @default(cuid())
+  name     String
+  email    String @unique
+  /// Luôn là bcrypt hash, không bao giờ là plaintext
+  password String
+  role     Role   @default(STUDENT)
+
+  // --- PII đã mã hóa (AES-256-GCM) -------------------------------
+  cccdCiphertext String? @db.Text
+  cccdIv         String?
+  cccdAuthTag    String?
+  /// Blind index HMAC-SHA256(normalized CCCD) để matching khi OCR
+  cccdHash String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  registrations Registration[]
+  healthChecks  HealthCheck[]  @relation("MedicalStaffHealthChecks")
+  auditLogs     AuditLog[]
+
+  @@index([role])
+}
+
+model Campaign {
+  id            String         @id @default(cuid())
+  name          String
+  date          DateTime
+  location      String
+  /// Chỉ tiêu chính thức
+  capacity      Int
+  /// Hệ số overbook, ví dụ 1.2 = nhận tối đa 120% chỉ tiêu
+  overbookRate  Decimal        @default(1.0) @db.Decimal(4, 2)
+  status        CampaignStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  registrations Registration[]
+
+  @@index([date])
+  @@index([status])
+}
+
+model Registration {
+  id         String    @id @default(cuid())
+  userId     String
+  campaignId String
+  status     RegStatus @default(PENDING)
+  checkInTime DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  healthCheck HealthCheck?
+
+  @@index([userId, campaignId])
+  @@index([campaignId, status])
+  @@index([status])
+}
+
+model HealthCheck {
+  id             String  @id @default(cuid())
+  registrationId String  @unique
+  /// Ví dụ "120/80"
+  bloodPressure  String
+  heartRate      Int
+  /// Cân nặng tại thời điểm khám (kg)
+  weight         Decimal @db.Decimal(5, 2)
+  bloodType      BloodType?
+  /// Chỉ nhận 250 hoặc 350 (ràng buộc CHECK ở tầng DB)
+  bloodVolume    Int
+  isPassed       Boolean @default(false)
+  medicalStaffId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  medicalStaff User         @relation("MedicalStaffHealthChecks", fields: [medicalStaffId], references: [id], onDelete: Restrict)
+
+  @@index([medicalStaffId])
+  @@index([isPassed])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  userId    String?
+  details   Json?
+  timestamp DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([timestamp])
+}
