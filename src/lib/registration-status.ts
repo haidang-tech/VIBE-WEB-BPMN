@@ -121,7 +121,7 @@ export const REGISTRATION_STATUS_META: Record<RegStatus, RegistrationStatusMeta>
     HEALTH_CHECK_FAILED: {
       label: "Không đạt khám sức khỏe",
       description:
-        "Chỉ số huyết áp hoặc nhịp tim chưa đạt yêu cầu. Vui lòng liên hệ nhân viên y tế để được tư vấn.",
+        "Chỉ số huyết áp hoặc nhịp tim chưa đạt yêu cầu, hoặc ca hiến máu gặp sự cố. Vui lòng liên hệ nhân viên y tế để được tư vấn.",
       tone: "danger",
       completedSteps: 3,
       activeStep: null,

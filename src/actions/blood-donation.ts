@@ -61,7 +61,20 @@ export type EvaluateHealthData = {
   reasons: string[];
 };
 
+export type FinalizeDonationData = {
+  registrationId: string;
+  status: "COMPLETED" | "HEALTH_CHECK_FAILED";
+  outcome: "SUCCESS" | "INCIDENT";
+};
+
 const idSchema = z.string().trim().min(1, "Thiếu ID").max(64, "ID quá dài");
+
+const finalizeDonationSchema = z.object({
+  registrationId: idSchema,
+  outcome: z.enum(["SUCCESS", "INCIDENT"], {
+    error: "Kết quả hiến máu không hợp lệ",
+  }),
+});
 
 // ---------------------------------------------------------------------------
 // Helper nội bộ
@@ -688,6 +701,159 @@ export async function evaluateHealth(
       success: false,
       code: "INTERNAL_ERROR",
       message: "Không thể lưu kết quả khám sức khỏe. Vui lòng thử lại sau.",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Chốt kết quả hiến máu (sau khi hồ sơ đã ELIGIBLE)
+// ---------------------------------------------------------------------------
+
+type FinalizeDonationOutcome =
+  | { type: "not_found" }
+  | { type: "invalid_status"; status: string }
+  | { type: "updated"; status: "COMPLETED" | "HEALTH_CHECK_FAILED" };
+
+/**
+ * Chốt kết quả sau khi lấy máu.
+ *
+ * - `SUCCESS`  : hiến máu thành công -> `COMPLETED`.
+ * - `INCIDENT` : thất bại do sự cố (rút kim, máu đông, tai biến nhẹ...) ->
+ *   `HEALTH_CHECK_FAILED`. Giữ nguyên `HealthCheck.isPassed = true` vì chỉ số
+ *   khám lúc trước vẫn hợp lệ; sự cố xảy ra ở bước lấy máu.
+ */
+export async function finalizeDonation(
+  data: unknown,
+): Promise<ActionResult<FinalizeDonationData>> {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return {
+        success: false,
+        code: "UNAUTHENTICATED",
+        message: "Bạn cần đăng nhập để chốt kết quả hiến máu.",
+      };
+    }
+
+    if (session.role !== "MEDICAL") {
+      return {
+        success: false,
+        code: "FORBIDDEN",
+        message: "Chỉ nhân viên y tế mới có quyền chốt kết quả hiến máu.",
+      };
+    }
+
+    const parsed = finalizeDonationSchema.safeParse(data);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        code: "INVALID_INPUT",
+        message: "Kết quả hiến máu không hợp lệ.",
+        errors: zodFieldErrors(parsed.error),
+      };
+    }
+
+    const { registrationId, outcome } = parsed.data;
+    const nextStatus =
+      outcome === "SUCCESS" ? "COMPLETED" : "HEALTH_CHECK_FAILED";
+
+    const result = await prisma.$transaction<FinalizeDonationOutcome>(
+      async (tx) => {
+        const registration = await tx.registration.findUnique({
+          where: { id: registrationId },
+          select: { id: true, status: true },
+        });
+
+        if (!registration) {
+          return { type: "not_found" };
+        }
+
+        // Chỉ chốt được hồ sơ đã qua khám sức khỏe (ELIGIBLE).
+        if (registration.status !== "ELIGIBLE") {
+          return { type: "invalid_status", status: registration.status };
+        }
+
+        await tx.registration.update({
+          where: { id: registrationId },
+          data: { status: nextStatus },
+          select: { id: true },
+        });
+
+        return { type: "updated", status: nextStatus };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    if (result.type === "not_found") {
+      return {
+        success: false,
+        code: "REGISTRATION_NOT_FOUND",
+        message: "Không tìm thấy hồ sơ đăng ký.",
+      };
+    }
+
+    if (result.type === "invalid_status") {
+      return {
+        success: false,
+        code: "INVALID_STATUS",
+        message: `Hồ sơ đang ở trạng thái ${result.status}, không thể chốt kết quả hiến máu.`,
+      };
+    }
+
+    await writeAuditLog({
+      action:
+        outcome === "SUCCESS" ? "DONATION_COMPLETED" : "DONATION_FAILED",
+      userId: session.userId,
+      details: {
+        registrationId,
+        previousStatus: "ELIGIBLE",
+        status: result.status,
+        outcome,
+      },
+    });
+
+    if (outcome === "INCIDENT") {
+      return {
+        success: true,
+        code: "DONATION_FAILED",
+        message:
+          "Đã ghi nhận ca hiến máu thất bại do sự cố. Hồ sơ được đóng để không tính chỉ tiêu.",
+        data: {
+          registrationId,
+          status: "HEALTH_CHECK_FAILED",
+          outcome: "INCIDENT",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      code: "DONATION_COMPLETED",
+      message: "Đã chốt ca hiến máu thành công.",
+      data: {
+        registrationId,
+        status: "COMPLETED",
+        outcome: "SUCCESS",
+      },
+    };
+  } catch (error) {
+    if (isPrismaError(error, "P2034")) {
+      return {
+        success: false,
+        code: "CONFLICT",
+        message:
+          "Hồ sơ đang được xử lý bởi thao tác khác. Vui lòng thử lại sau vài giây.",
+      };
+    }
+
+    console.error("[finalizeDonation] Lỗi:", error);
+
+    return {
+      success: false,
+      code: "INTERNAL_ERROR",
+      message: "Không thể chốt kết quả hiến máu. Vui lòng thử lại sau.",
     };
   }
 }
