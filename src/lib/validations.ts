@@ -148,6 +148,51 @@ export const healthCheckSchema = z.object({
 export type HealthCheckInput = z.infer<typeof healthCheckSchema>;
 
 // ---------------------------------------------------------------------------
+// Quản trị chiến dịch (Admin)
+// ---------------------------------------------------------------------------
+
+/** Ngày chiến dịch dạng YYYY-MM-DD, diễn giải theo múi giờ Việt Nam (UTC+7). */
+export const campaignDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày chiến dịch phải có dạng YYYY-MM-DD")
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00+07:00`);
+    return !Number.isNaN(date.getTime());
+  }, "Ngày chiến dịch không hợp lệ");
+
+export const campaignStatusSchema = z.enum(
+  ["DRAFT", "ACTIVE", "COMPLETED", "CANCELLED"],
+  { error: "Trạng thái chiến dịch không hợp lệ" },
+);
+
+export const campaignFormSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(3, "Tên chiến dịch tối thiểu 3 ký tự")
+    .max(150, "Tên chiến dịch tối đa 150 ký tự"),
+  date: campaignDateSchema,
+  location: z
+    .string()
+    .trim()
+    .min(3, "Địa điểm tối thiểu 3 ký tự")
+    .max(200, "Địa điểm tối đa 200 ký tự"),
+  capacity: z.coerce
+    .number({ error: "Chỉ tiêu phải là số" })
+    .int("Chỉ tiêu phải là số nguyên")
+    .min(1, "Chỉ tiêu tối thiểu 1 người")
+    .max(100_000, "Chỉ tiêu tối đa 100.000 người"),
+  overbookRate: z.coerce
+    .number({ error: "Tỷ lệ overbook phải là số" })
+    .min(1, "Tỷ lệ overbook tối thiểu 1.0")
+    .max(3, "Tỷ lệ overbook tối đa 3.0"),
+  status: campaignStatusSchema,
+});
+
+export type CampaignFormInput = z.infer<typeof campaignFormSchema>;
+
+// ---------------------------------------------------------------------------
 // Audit log nội bộ (middleware -> /api/internal/audit)
 // ---------------------------------------------------------------------------
 
