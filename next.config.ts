@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["@prisma/client"],
+  experimental: {
+    // Ảnh CCCD tối đa 5MB ở Server Action check-in (Prompt 5).
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
   async headers() {
     return [
       {
