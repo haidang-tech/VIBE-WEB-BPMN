@@ -51,7 +51,7 @@ export default async function StudentLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-border/70 bg-background/85 sticky top-0 z-40 border-b backdrop-blur">
+      <header className="glass sticky top-0 z-40 border-b">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6">
           <Link
             href="/student/register"

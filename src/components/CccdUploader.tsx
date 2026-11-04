@@ -8,8 +8,6 @@ import {
   CameraOff,
   CheckCircle2,
   FileImage,
-  Info,
-  Loader2,
   RefreshCw,
   ScanLine,
   UploadCloud,
@@ -32,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InfoTooltip } from "@/components/ui/tooltip";
 import {
   recognizeCccdNumber,
   recognizeCccdNumberFromFile,
@@ -603,6 +602,12 @@ export default function CccdUploader({
           {isMedical
             ? "Quét CCCD để nhập chỉ số khám"
             : "Quét CCCD để check-in"}
+          <InfoTooltip
+            label={`OCR đọc vùng số trên mặt trước thẻ rồi đối chiếu hồ sơ ${
+              isMedical ? "trong chiến dịch đang chọn" : "đã duyệt"
+            }. Ảnh mờ thì nhập tay 12 số in trên thẻ.`}
+            side="top"
+          />
         </CardTitle>
         <CardDescription>
           {isMedical
@@ -612,15 +617,6 @@ export default function CccdUploader({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <p className="bg-muted/40 text-muted-foreground flex items-start gap-2 rounded-xl p-2.5 text-xs leading-relaxed">
-          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>
-            OCR đọc vùng số trên mặt trước thẻ rồi đối chiếu hồ sơ{" "}
-            {isMedical ? "trong chiến dịch đang chọn" : "đã duyệt"}. Ảnh mờ thì
-            nhập tay 12 số in trên thẻ.
-          </span>
-        </p>
-
         <div
           role="tablist"
           aria-label="Cách nhập ảnh CCCD"
@@ -734,7 +730,7 @@ export default function CccdUploader({
                     )}
                   >
                     {!cameraReady || autoScanning ? (
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                      <ScanLine className="size-3.5 animate-pulse" aria-hidden />
                     ) : showSuccessStatus ? (
                       <CheckCircle2 className="size-3.5" aria-hidden />
                     ) : scanPaused ? (
@@ -788,7 +784,7 @@ export default function CccdUploader({
                   onClick={startCamera}
                 >
                   {cameraStarting ? (
-                    <Loader2 className="animate-spin" aria-hidden />
+                    <Camera className="animate-pulse" aria-hidden />
                   ) : (
                     <Camera aria-hidden />
                   )}
@@ -886,8 +882,12 @@ export default function CccdUploader({
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="manual-cccd" className="text-xs">
+          <Label htmlFor="manual-cccd" className="flex items-center gap-1 text-xs">
             Số CCCD (12 chữ số)
+            <InfoTooltip
+              label="Hệ thống tự điền 12 số nhận diện được. Nếu ảnh mờ, nhập tay rồi bấm Check-in."
+              side="top"
+            />
           </Label>
           <Input
             id="manual-cccd"
@@ -904,10 +904,6 @@ export default function CccdUploader({
               setScanPaused(false);
             }}
           />
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Hệ thống tự điền 12 số nhận diện được. Nếu ảnh mờ, nhập tay rồi bấm
-            Check-in.
-          </p>
         </div>
 
         <input
@@ -937,7 +933,7 @@ export default function CccdUploader({
         >
           {loading ? (
             <>
-              <Loader2 className="animate-spin" aria-hidden />
+              <ScanLine className="animate-pulse" aria-hidden />
               Đang quét CCCD...
             </>
           ) : (

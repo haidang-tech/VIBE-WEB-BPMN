@@ -13,7 +13,6 @@ import {
   Droplets,
   HeartPulse,
   Info,
-  Loader2,
   Scale,
   Stethoscope,
   Syringe,
@@ -35,6 +34,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
+import { InfoTooltip } from "@/components/ui/tooltip";
 import {
   evaluateHealthRules,
   parseBloodPressure,
@@ -87,12 +88,6 @@ export type MedicalPanelRegistration = {
   healthCheck: MedicalHealthCheck | null;
 };
 
-type Feedback = {
-  tone: "success" | "destructive" | "warning" | "info";
-  title: string;
-  message: string;
-};
-
 type Props = {
   registration: MedicalPanelRegistration;
 };
@@ -118,11 +113,11 @@ function FieldError({ message }: { message?: string }) {
 
 export default function MedicalCheckPanel({ registration }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [finalizing, setFinalizing] = useState<"SUCCESS" | "INCIDENT" | null>(
     null,
   );
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   const existing = registration.healthCheck;
 
@@ -173,7 +168,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
     if (submitting) return;
 
     setSubmitting(true);
-    setFeedback(null);
 
     try {
       const result = await evaluateHealth(values);
@@ -189,10 +183,10 @@ export default function MedicalCheckPanel({ registration }: Props) {
       }
 
       if (result.success) {
-        setFeedback({
+        toast({
           tone: "success",
           title: "Sức khỏe đạt yêu cầu",
-          message:
+          description:
             "Hồ sơ đã chuyển sang trạng thái đủ điều kiện. Hãy chốt kết quả sau khi lấy máu.",
         });
         router.refresh();
@@ -200,25 +194,26 @@ export default function MedicalCheckPanel({ registration }: Props) {
       }
 
       if (result.code === "HEALTH_CHECK_FAILED") {
-        setFeedback({
+        toast({
           tone: "destructive",
           title: "Sức khỏe chưa đạt",
-          message: result.message,
+          description: result.message,
         });
         router.refresh();
         return;
       }
 
-      setFeedback({
+      toast({
         tone: "destructive",
         title: "Không thể lưu chỉ số",
-        message: result.message,
+        description: result.message,
       });
     } catch {
-      setFeedback({
+      toast({
         tone: "destructive",
         title: "Mất kết nối máy chủ",
-        message: "Không thể gửi chỉ số khám. Vui lòng kiểm tra mạng và thử lại.",
+        description:
+          "Không thể gửi chỉ số khám. Vui lòng kiểm tra mạng và thử lại.",
       });
     } finally {
       setSubmitting(false);
@@ -237,7 +232,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
     if (!confirmed) return;
 
     setFinalizing(outcome);
-    setFeedback(null);
 
     try {
       const result = await finalizeDonation({
@@ -245,7 +239,7 @@ export default function MedicalCheckPanel({ registration }: Props) {
         outcome,
       });
 
-      setFeedback({
+      toast({
         tone: result.success
           ? outcome === "INCIDENT"
             ? "warning"
@@ -256,17 +250,18 @@ export default function MedicalCheckPanel({ registration }: Props) {
             ? "Đã ghi nhận ca thất bại"
             : "Đã chốt kết quả"
           : "Không thể chốt kết quả",
-        message: result.message,
+        description: result.message,
       });
 
       if (result.success) {
         router.refresh();
       }
     } catch {
-      setFeedback({
+      toast({
         tone: "destructive",
         title: "Mất kết nối máy chủ",
-        message: "Không thể chốt kết quả. Vui lòng kiểm tra mạng và thử lại.",
+        description:
+          "Không thể chốt kết quả. Vui lòng kiểm tra mạng và thử lại.",
       });
     } finally {
       setFinalizing(null);
@@ -318,14 +313,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
         </CardContent>
       </Card>
 
-      {feedback ? (
-        <Alert variant={feedback.tone}>
-          {feedback.tone === "success" ? <CheckCircle2 /> : <AlertCircle />}
-          <AlertTitle>{feedback.title}</AlertTitle>
-          <AlertDescription>{feedback.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
       {existing ? (
         <Card>
           <CardHeader>
@@ -375,6 +362,10 @@ export default function MedicalCheckPanel({ registration }: Props) {
             <CardTitle className="flex items-center gap-2 text-base">
               <HeartPulse className="text-primary size-4" aria-hidden />
               Nhập chỉ số khám sức khỏe
+              <InfoTooltip
+                label="Ngưỡng đạt: huyết áp 90/60–140/90 mmHg và nhịp tim 60–100 lần/phút. Không đạt sẽ đóng hồ sơ ở trạng thái không đủ điều kiện."
+                side="top"
+              />
             </CardTitle>
             <CardDescription>
               Nhập nhanh các chỉ số lâm sàng. Hệ thống tự đánh giá cổng XOR 3
@@ -383,7 +374,7 @@ export default function MedicalCheckPanel({ registration }: Props) {
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={onSubmit} className="space-y-5" noValidate>
+            <form onSubmit={onSubmit} className="space-y-6" noValidate>
               <input type="hidden" {...register("registrationId")} />
               <input type="hidden" {...register("bloodVolume")} />
 
@@ -483,15 +474,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
                 <FieldError message={errors.bloodVolume?.message} />
               </div>
 
-              <div className="bg-muted/40 text-muted-foreground flex items-start gap-2 rounded-lg p-2.5 text-xs leading-relaxed">
-                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                <span>
-                  Ngưỡng đạt: huyết áp 90/60–140/90 mmHg và nhịp tim 60–100
-                  lần/phút. Không đạt sẽ đóng hồ sơ ở trạng thái không đủ điều
-                  kiện.
-                </span>
-              </div>
-
               <Button
                 type="submit"
                 size="lg"
@@ -500,7 +482,7 @@ export default function MedicalCheckPanel({ registration }: Props) {
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="animate-spin" aria-hidden />
+                    <Stethoscope className="animate-pulse" aria-hidden />
                     Đang lưu chỉ số...
                   </>
                 ) : (
@@ -539,7 +521,10 @@ export default function MedicalCheckPanel({ registration }: Props) {
                 className="h-24 flex-col gap-1 text-base font-semibold"
               >
                 {finalizing === "SUCCESS" ? (
-                  <Loader2 className="size-6 animate-spin" aria-hidden />
+                  <CheckCircle2
+                    className="size-6 animate-pulse"
+                    aria-hidden
+                  />
                 ) : (
                   <CheckCircle2 className="size-6" aria-hidden />
                 )}
@@ -558,7 +543,10 @@ export default function MedicalCheckPanel({ registration }: Props) {
                 className="h-24 flex-col gap-1 text-base font-semibold"
               >
                 {finalizing === "INCIDENT" ? (
-                  <Loader2 className="size-6 animate-spin" aria-hidden />
+                  <AlertTriangle
+                    className="size-6 animate-pulse"
+                    aria-hidden
+                  />
                 ) : (
                   <AlertTriangle className="size-6" aria-hidden />
                 )}

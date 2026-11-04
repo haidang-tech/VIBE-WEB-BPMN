@@ -91,6 +91,17 @@ export const donationSlotSchema = z.enum(DONATION_SLOTS, {
   error: "Vui lòng chọn khung giờ hiến máu",
 });
 
+/**
+ * Sinh viên chọn một hoặc nhiều khung giờ mong muốn.
+ * Danh sách được chuẩn hóa theo thứ tự thời gian và loại trùng.
+ */
+export const donationSlotListSchema = z
+  .array(donationSlotSchema)
+  .min(1, "Chọn ít nhất một khung giờ")
+  .max(DONATION_SLOTS.length)
+  .transform((slots) => DONATION_SLOTS.filter((slot) => slots.includes(slot)))
+  .refine((slots) => slots.length > 0, "Chọn ít nhất một khung giờ");
+
 export const genderSchema = z.enum(["MALE", "FEMALE", "OTHER"], {
   error: "Vui lòng chọn giới tính",
 });
@@ -223,7 +234,7 @@ export const donationRegistrationSchema = z.object({
   recentTattooOrSurgery: yesNoSchema,
   infectiousDiseaseHistory: yesNoSchema,
   campaignId: z.string().trim().min(1, "Thiếu chiến dịch").max(64),
-  slotTime: donationSlotSchema,
+  preferredSlots: donationSlotListSchema,
   commitment: z
     .boolean()
     .refine((value) => value === true, {

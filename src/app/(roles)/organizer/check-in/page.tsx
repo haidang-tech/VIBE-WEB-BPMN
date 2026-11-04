@@ -264,6 +264,7 @@ export default async function OrganizerCheckInPage({
         status: true,
         checkInTime: true,
         createdAt: true,
+        slotTime: true,
         user: {
           select: {
             name: true,
@@ -396,6 +397,7 @@ export default async function OrganizerCheckInPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Sinh viên</TableHead>
+                    <TableHead>Khung giờ</TableHead>
                     <TableHead>CCCD</TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead>Check-in</TableHead>
@@ -405,7 +407,7 @@ export default async function OrganizerCheckInPage({
                 <TableBody>
                   {registrations.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-36 text-center">
+                      <TableCell colSpan={6} className="h-36 text-center">
                         <div className="text-muted-foreground flex flex-col items-center gap-2">
                           <SearchX className="size-6" aria-hidden />
                           <p className="text-foreground font-medium">
@@ -431,6 +433,9 @@ export default async function OrganizerCheckInPage({
                             <p className="text-muted-foreground text-xs">
                               {registration.user.email}
                             </p>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {registration.slotTime ?? "—"}
                           </TableCell>
                           <TableCell className="text-muted-foreground font-mono text-xs">
                             {maskedCccd(registration.user)}

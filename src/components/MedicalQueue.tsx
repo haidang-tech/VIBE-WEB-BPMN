@@ -7,7 +7,6 @@ import type { RegStatus } from "@prisma/client";
 import {
   CalendarDays,
   Clock3,
-  Loader2,
   Search,
   SearchX,
   Users,
@@ -178,8 +177,8 @@ export default function MedicalQueue({
 
         <div className="relative">
           {pending ? (
-            <Loader2
-              className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin"
+            <Search
+              className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-pulse"
               aria-hidden
             />
           ) : (

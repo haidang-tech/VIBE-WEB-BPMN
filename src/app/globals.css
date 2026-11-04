@@ -165,19 +165,158 @@
 }
 
 @layer utilities {
-  /* Nền trang có chút hồng phấn để không bị "khô". */
+  /* Mesh gradient nhẹ, nhiều lớp màu để nền "sống" hơn. */
   .app-surface {
     background-image:
       radial-gradient(
         900px 420px at 12% -8%,
-        color-mix(in oklab, var(--primary) 10%, transparent) 0%,
-        transparent 60%
+        color-mix(in oklab, var(--primary) 14%, transparent) 0%,
+        transparent 62%
       ),
       radial-gradient(
-        700px 380px at 105% 0%,
-        color-mix(in oklab, var(--primary) 6%, transparent) 0%,
-        transparent 55%
+        760px 420px at 104% 4%,
+        oklch(0.72 0.14 220 / 0.12) 0%,
+        transparent 58%
+      ),
+      radial-gradient(
+        820px 520px at 46% 112%,
+        oklch(0.82 0.14 82 / 0.1) 0%,
+        transparent 62%
+      ),
+      radial-gradient(
+        620px 420px at -8% 82%,
+        oklch(0.7 0.14 300 / 0.09) 0%,
+        transparent 58%
+      ),
+      radial-gradient(
+        520px 360px at 78% 52%,
+        color-mix(in oklab, var(--primary) 8%, transparent) 0%,
+        transparent 60%
       );
+    background-attachment: fixed;
+    background-size: 130% 130%;
+    animation: mesh-drift 26s ease-in-out infinite alternate;
+  }
+
+  /* Glassmorphism: dùng token để hợp cả light lẫn dark. */
+  .glass {
+    background-color: color-mix(in oklab, var(--card) 58%, transparent);
+    -webkit-backdrop-filter: blur(12px) saturate(155%);
+    backdrop-filter: blur(12px) saturate(155%);
+  }
+
+  .dark .glass {
+    background-color: color-mix(in oklab, var(--card) 55%, transparent);
+  }
+
+  .glass-strong {
+    background-color: color-mix(in oklab, var(--card) 76%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(165%);
+    backdrop-filter: blur(20px) saturate(165%);
+  }
+
+  .dark .glass-strong {
+    background-color: color-mix(in oklab, var(--card) 72%, transparent);
+  }
+
+  /* Navbar/sidebar: thêm viền sáng mảnh để tách khỏi mesh gradient. */
+  .glass-nav {
+    background-color: color-mix(in oklab, var(--card) 64%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.35) inset,
+      0 10px 30px -24px oklch(0 0 0 / 0.35);
+  }
+
+  .dark .glass-nav {
+    background-color: color-mix(in oklab, var(--card) 62%, transparent);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.06) inset,
+      0 14px 36px -24px oklch(0 0 0 / 0.7);
+  }
+
+  /* Ripple nhẹ khi nhấn (thuần CSS, không cần JS). */
+  .ripple {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .ripple::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      circle at center,
+      currentColor 0%,
+      transparent 62%
+    );
+    opacity: 0;
+    transform: scale(0.2);
+    transition:
+      transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 520ms ease;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .ripple:active::after {
+    opacity: 0.22;
+    transform: scale(2.3);
+    transition: 0s;
+  }
+
+  /* Nâng nhẹ phần tử tương tác — dùng cho các thẻ không phải <Card>. */
+  .lift {
+    transition:
+      transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 300ms ease,
+      border-color 300ms ease,
+      background-color 300ms ease;
+  }
+
+  .lift:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 2px 4px oklch(0 0 0 / 0.04),
+      0 18px 40px -24px oklch(0 0 0 / 0.28);
+  }
+
+  .dark .lift:hover {
+    box-shadow:
+      0 2px 4px oklch(0 0 0 / 0.25),
+      0 22px 48px -24px oklch(0 0 0 / 0.7);
+  }
+
+  /* Skeleton sóng chạy: giữ animate-pulse nhưng thêm shimmer. */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background-color: color-mix(in oklab, var(--muted) 88%, transparent);
+  }
+
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--foreground) 8%, transparent) 50%,
+      transparent 100%
+    );
+    animation: skeleton-wave 1.7s ease-in-out infinite;
+  }
+
+  .dark .skeleton-shimmer::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--foreground) 10%, transparent) 50%,
+      transparent 100%
+    );
   }
 
   .shadow-soft {
@@ -190,5 +329,52 @@
     box-shadow:
       0 1px 2px oklch(0 0 0 / 0.3),
       0 18px 40px -20px oklch(0 0 0 / 0.6);
+  }
+}
+
+@keyframes mesh-drift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%,
+      0% 80%,
+      60% 40%;
+  }
+  100% {
+    background-position:
+      6% 4%,
+      94% 6%,
+      44% 94%,
+      6% 74%,
+      72% 56%;
+  }
+}
+
+@keyframes skeleton-wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-surface {
+    animation: none;
+  }
+
+  .ripple::after {
+    display: none;
+  }
+
+  .lift:hover {
+    transform: none;
+  }
+
+  .skeleton-shimmer::after {
+    animation: none;
   }
 }

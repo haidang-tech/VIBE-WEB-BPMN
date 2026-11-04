@@ -1,7 +1,8 @@
-# UI/UX & Theming — Prompt 12
+# UI/UX & Theming — Prompt 12 & 14
 
 Giao diện được làm mới theo phong cách trẻ trung, sạch sẽ: nền sáng, thẻ bo góc lớn,
-shadow mềm và điểm nhấn Rose/Crimson. Toàn bộ hệ thống hỗ trợ **Light/Dark mode**.
+shadow mềm và điểm nhấn Rose/Crimson. Toàn bộ hệ thống hỗ trợ **Light/Dark mode**,
+micro-interactions, glassmorphism, toast, confetti, skeleton và tooltip.
 
 ## 1. Bảng màu & token
 
@@ -31,13 +32,31 @@ theo theme.
 
 ## 3. Quy ước giao diện
 
-- Thẻ: `rounded-2xl` + `shadow-soft`.
+- Thẻ: `rounded-2xl` + `shadow-soft`; hover nhấc nhẹ (`-translate-y-1`) và đổ bóng.
 - Nút, input, select, textarea, alert: `rounded-xl`.
-- Nền trang dùng `.app-surface` để có vệt hồng phấn nhẹ.
+- Nút có ripple CSS (`.ripple`) và scale nhẹ khi nhấn (`active:scale-[0.97]`).
+- Nền trang dùng `.app-surface`: mesh gradient nhiều lớp, drift chậm; tự tắt khi
+  `prefers-reduced-motion`.
+- Header/Navbar dùng `.glass` (backdrop blur + nền trong mờ theo token).
 - Tiêu đề/ nút có icon Lucide đi kèm.
 - Microcopy tiếng Việt ngắn, thân thiện, hướng hành động; bỏ placeholder/giải thích thừa.
+- Chú thích dài chuyển thành `InfoTooltip` (icon ⓘ, hiện khi hover/focus).
 
-## 4. Kiểm tra
+## 4. Motion & feedback
+
+| Thành phần | File | Cách dùng |
+| --- | --- | --- |
+| Toast toàn cục | `components/ui/toast.tsx` | `useToast().toast({ tone, title, description })`; trượt từ phải, tự đóng sau 5s |
+| Confetti | `components/ui/confetti.tsx` | `<Confetti show={celebrate} />` khi đăng ký thành công |
+| Skeleton | `components/ui/skeleton.tsx` | primitive `animate-pulse` |
+| Page skeleton | `components/PageSkeleton.tsx` | dùng trong `loading.tsx` của các route |
+| Tooltip | `components/ui/tooltip.tsx` | `InfoTooltip` / `Tooltip`, thuần CSS, dùng được ở Server Component |
+
+`ToastProvider` được mount trong `src/app/layout.tsx` nên mọi Client Component đều
+gọi được. Không còn spinner `animate-spin`; trạng thái chờ dùng icon `animate-pulse`
+hoặc skeleton đồng bộ hình dáng nội dung.
+
+## 5. Kiểm tra
 
 ```bash
 npx tsc --noEmit

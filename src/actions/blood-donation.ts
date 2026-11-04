@@ -13,6 +13,7 @@ import {
   evaluateHealthRules,
   evaluateProfileRules,
   parseBloodPressure,
+  pickLeastCrowdedSlot,
 } from "@/lib/donation-rules";
 import { prisma } from "@/lib/prisma";
 import {
@@ -51,6 +52,8 @@ export type ValidateProfileData = {
   eligible: boolean;
   age: number;
   reasons: string[];
+  /** Khung giờ hệ thống phân cho sinh viên. */
+  assignedSlot?: string;
 };
 
 export type EvaluateHealthData = {
@@ -251,6 +254,7 @@ type ValidateProfileOutcome =
       type: "created";
       registrationId: string;
       status: "APPROVED" | "REJECTED";
+      assignedSlot: string;
     };
 
 export async function validateProfile(
@@ -303,7 +307,7 @@ export async function validateProfile(
       recentTattooOrSurgery,
       infectiousDiseaseHistory,
       campaignId,
-      slotTime,
+      preferredSlots,
       commitment,
       note,
     } = parsed.data;
@@ -411,6 +415,26 @@ export async function validateProfile(
           return { type: "full", maxSlots, activeCount };
         }
 
+        // Cân bằng tải: đếm số hồ sơ đang chiếm chỗ theo từng khung đã chọn,
+        // sau đó phân vào khung ít đông nhất (ưu tiên giờ sớm khi bằng nhau).
+        const slotCounts = await Promise.all(
+          preferredSlots.map(async (slot) => {
+            const count = await tx.registration.count({
+              where: {
+                campaignId,
+                slotTime: slot,
+                status: { in: [...CAPACITY_CONSUMING_STATUSES] },
+              },
+            });
+
+            return [slot, count] as const;
+          }),
+        );
+
+        const assignedSlot =
+          pickLeastCrowdedSlot(preferredSlots, Object.fromEntries(slotCounts)) ??
+          preferredSlots[0];
+
         const status = profile.eligible ? "APPROVED" : "REJECTED";
 
         const registration = await tx.registration.create({
@@ -420,7 +444,8 @@ export async function validateProfile(
             status,
             weightKg,
             heightCm,
-            slotTime,
+            slotTime: assignedSlot,
+            preferredSlots,
             usedAntibiotics: usedAntibiotics === "YES",
             recentTattooOrSurgery: recentTattooOrSurgery === "YES",
             infectiousDiseaseHistory: infectiousDiseaseHistory === "YES",
@@ -457,6 +482,7 @@ export async function validateProfile(
           type: "created",
           registrationId: registration.id,
           status,
+          assignedSlot,
         };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -498,7 +524,8 @@ export async function validateProfile(
         status: outcome.status,
         age,
         weightKg,
-        slotTime,
+        preferredSlots,
+        assignedSlot: outcome.assignedSlot,
         reasons: profile.reasons,
       },
     });
@@ -514,6 +541,7 @@ export async function validateProfile(
           eligible: false,
           age,
           reasons: profile.reasons,
+          assignedSlot: outcome.assignedSlot,
         },
       };
     }
@@ -528,6 +556,7 @@ export async function validateProfile(
         eligible: true,
         age,
         reasons: [],
+        assignedSlot: outcome.assignedSlot,
       },
     };
   } catch (error) {

@@ -19,6 +19,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { encryptCccd } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { pickLeastCrowdedSlot } from "@/lib/donation-rules";
 
 jest.mock("@/lib/prisma", () => ({
   prisma: {
@@ -127,7 +128,7 @@ function validRegistrationInput(overrides: Record<string, unknown> = {}) {
     recentTattooOrSurgery: "NO",
     infectiousDiseaseHistory: "NO",
     campaignId: CAMPAIGN_ID,
-    slotTime: "07:30 - 08:30",
+    preferredSlots: ["07:30 - 08:30"],
     commitment: true,
     note: "",
     ...overrides,
@@ -297,7 +298,11 @@ describe("validateProfile", () => {
 
     expect(db.registration.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: "APPROVED" }),
+        data: expect.objectContaining({
+          status: "APPROVED",
+          slotTime: "07:30 - 08:30",
+          preferredSlots: ["07:30 - 08:30"],
+        }),
       }),
     );
     expect(db.user.update).toHaveBeenCalledWith(
@@ -401,6 +406,38 @@ describe("validateProfile", () => {
     expect(result.errors).toHaveProperty("cccd");
     expect(result.errors).toHaveProperty("weightKg");
     expect(db.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cân bằng khung giờ
+// ---------------------------------------------------------------------------
+
+describe("pickLeastCrowdedSlot", () => {
+  it("chọn khung ít đông nhất trong các lựa chọn", () => {
+    expect(
+      pickLeastCrowdedSlot(
+        ["07:30 - 08:30", "08:30 - 09:30", "09:30 - 10:30"],
+        {
+          "07:30 - 08:30": 10,
+          "08:30 - 09:30": 3,
+          "09:30 - 10:30": 7,
+        },
+      ),
+    ).toBe("08:30 - 09:30");
+  });
+
+  it("ưu tiên khung sớm hơn khi tải bằng nhau", () => {
+    expect(
+      pickLeastCrowdedSlot(["07:30 - 08:30", "08:30 - 09:30"], {
+        "07:30 - 08:30": 4,
+        "08:30 - 09:30": 4,
+      }),
+    ).toBe("07:30 - 08:30");
+  });
+
+  it("trả null khi không có lựa chọn", () => {
+    expect(pickLeastCrowdedSlot([], {})).toBeNull();
   });
 });
 

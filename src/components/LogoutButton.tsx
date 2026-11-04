@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, Loader2 } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function LogoutButton() {
@@ -30,7 +30,7 @@ export default function LogoutButton() {
       disabled={loading}
     >
       {loading ? (
-        <Loader2 className="animate-spin" aria-hidden />
+        <LogOut className="animate-pulse" aria-hidden />
       ) : (
         <LogOut aria-hidden />
       )}

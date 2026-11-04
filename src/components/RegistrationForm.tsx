@@ -21,14 +21,12 @@ import {
   Clock3,
   HeartPulse,
   Info,
-  Loader2,
   Lock,
   MapPin,
   ShieldCheck,
   Ticket,
   UserRound,
   Users,
-  X,
   XCircle,
 } from "lucide-react";
 import { validateProfile } from "@/actions/blood-donation";
@@ -42,10 +40,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Confetti from "@/components/ui/confetti";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
+import { InfoTooltip } from "@/components/ui/tooltip";
 import {
   MIN_AGE,
   MIN_WEIGHT_KG,
@@ -106,7 +107,7 @@ type RegistrationFormValues = {
   recentTattooOrSurgery: YesNoValue;
   infectiousDiseaseHistory: YesNoValue;
   campaignId: string;
-  slotTime: string;
+  preferredSlots: string[];
   commitment: boolean;
   note: string;
 };
@@ -117,12 +118,6 @@ type ServerState = {
   message: string;
   reasons?: string[];
   trackingId?: string;
-};
-
-type ToastState = {
-  tone: "destructive" | "success" | "warning" | "info";
-  title: string;
-  description: string;
 };
 
 type Props = {
@@ -177,7 +172,7 @@ const STEP_FIELDS: (keyof RegistrationFormValues)[][] = [
     "recentTattooOrSurgery",
     "infectiousDiseaseHistory",
   ],
-  ["campaignId", "slotTime", "commitment", "note"],
+  ["campaignId", "preferredSlots", "commitment", "note"],
 ];
 
 const GENDER_LABELS: Record<string, string> = {
@@ -249,12 +244,10 @@ function YesNoQuestion({
 }) {
   return (
     <fieldset className="border-border/70 bg-background/40 rounded-xl border p-4">
-      <legend className="px-1 text-sm font-medium">{label}</legend>
-      {hint ? (
-        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-          {hint}
-        </p>
-      ) : null}
+      <legend className="flex items-center gap-1 px-1 text-sm font-medium">
+        {label}
+        {hint ? <InfoTooltip label={hint} side="top" /> : null}
+      </legend>
       <div className="mt-3 flex gap-2">
         {(["YES", "NO"] as const).map((value) => (
           <label
@@ -303,10 +296,11 @@ function SummaryRow({
 
 export default function RegistrationForm({ campaigns, defaults }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [serverState, setServerState] = useState<ServerState | null>(null);
   const [step, setStep] = useState(0);
-  const [toast, setToast] = useState<ToastState | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
   const firstAvailableCampaign =
@@ -347,7 +341,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
       recentTattooOrSurgery: "",
       infectiousDiseaseHistory: "",
       campaignId: firstAvailableCampaign,
-      slotTime: "",
+      preferredSlots: [],
       commitment: false,
       note: "",
     },
@@ -413,17 +407,17 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
   }, [redirectTo, router]);
 
   useEffect(() => {
-    if (!toast || redirectTo) return;
+    if (!celebrate) return;
 
-    const timer = window.setTimeout(() => setToast(null), 7000);
+    const timer = window.setTimeout(() => setCelebrate(false), 3200);
     return () => window.clearTimeout(timer);
-  }, [toast, redirectTo]);
+  }, [celebrate]);
 
   async function goNext() {
     const valid = await trigger(STEP_FIELDS[step], { shouldFocus: true });
 
     if (!valid) {
-      setToast({
+      toast({
         tone: "destructive",
         title: "Thiếu hoặc sai thông tin",
         description: "Vui lòng kiểm tra các trường được đánh dấu đỏ.",
@@ -451,7 +445,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
       if (targetStep >= 0) setStep(targetStep);
     }
 
-    setToast({
+    toast({
       tone: "destructive",
       title: "Thiếu hoặc sai thông tin",
       description: "Vui lòng kiểm tra các trường được đánh dấu đỏ.",
@@ -472,12 +466,14 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
           result.data.registrationId,
         )}`;
 
-        setToast({
+        toast({
           tone: "success",
           title: "Đăng ký thành công",
-          description:
-            "Hồ sơ đã được ghi nhận. Đang chuyển tới trang theo dõi tiến độ...",
+          description: result.data.assignedSlot
+            ? `Bạn được xếp vào khung ${result.data.assignedSlot}. Đang chuyển tới trang theo dõi...`
+            : "Hồ sơ đã được ghi nhận. Đang chuyển tới trang theo dõi tiến độ...",
         });
+        setCelebrate(true);
         setRedirectTo(trackingUrl);
         return;
       }
@@ -501,7 +497,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
           reasons: result.data?.reasons,
           trackingId: result.data?.registrationId,
         });
-        setToast({
+        toast({
           tone: "warning",
           title: "Hồ sơ chưa đủ điều kiện",
           description: result.message,
@@ -513,7 +509,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
           message: result.message,
           trackingId: result.data?.registrationId,
         });
-        setToast({
+        toast({
           tone: "info",
           title: "Đã có hồ sơ cho chiến dịch này",
           description: result.message,
@@ -531,7 +527,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
           title,
           message: result.message,
         });
-        setToast({
+        toast({
           tone: "destructive",
           title,
           description: result.message,
@@ -544,7 +540,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
         message:
           "Không thể gửi hồ sơ lúc này. Vui lòng kiểm tra kết nối mạng và thử lại.",
       });
-      setToast({
+      toast({
         tone: "destructive",
         title: "Mất kết nối máy chủ",
         description: "Vui lòng kiểm tra kết nối mạng và thử lại.",
@@ -853,9 +849,13 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email">
+                      <Label htmlFor="email" className="flex items-center gap-1">
                         Email sinh viên{" "}
                         <span className="text-destructive">*</span>
+                        <InfoTooltip
+                          label="Email gắn với tài khoản và bắt buộc có đuôi @due.edu.vn."
+                          side="top"
+                        />
                       </Label>
                       <Input
                         id="email"
@@ -869,9 +869,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         }
                         {...register("email")}
                       />
-                      <p className="text-muted-foreground text-xs">
-                        Email gắn với tài khoản, phải có đuôi @due.edu.vn.
-                      </p>
                       <FieldError
                         field="email"
                         message={errors.email?.message}
@@ -879,9 +876,17 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                     </div>
 
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="cccd">
+                      <Label htmlFor="cccd" className="flex items-center gap-1">
                         Số CCCD/CMND{" "}
                         <span className="text-destructive">*</span>
+                        <InfoTooltip
+                          label={
+                            defaults.cccd
+                              ? "CCCD đã gắn với tài khoản. Liên hệ ban tổ chức nếu cần thay đổi."
+                              : "Nhập đúng 12 chữ số. CCCD được mã hóa AES-256-GCM trước khi lưu."
+                          }
+                          side="top"
+                        />
                       </Label>
                       <div className="relative">
                         <Input
@@ -908,11 +913,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                           />
                         ) : null}
                       </div>
-                      <p className="text-muted-foreground text-xs">
-                        {defaults.cccd
-                          ? "CCCD đã gắn với tài khoản. Liên hệ ban tổ chức nếu cần thay đổi."
-                          : "Nhập đúng 12 chữ số. CCCD được mã hóa AES-256-GCM trước khi lưu."}
-                      </p>
                       <FieldError
                         field="cccd"
                         message={errors.cccd?.message}
@@ -1168,8 +1168,8 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       Lịch trình hiến máu
                     </h2>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      Chọn chiến dịch và khung giờ bạn mong muốn. Ban tổ chức sẽ
-                      sắp xếp theo thứ tự đăng ký.
+                      Chọn chiến dịch và các khung giờ bạn có thể tham gia. Hệ
+                      thống tự cân bằng để tránh đông đúc.
                     </p>
                   </div>
 
@@ -1222,24 +1222,28 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
 
                   <fieldset className="space-y-3">
                     <legend className="text-sm font-medium">
-                      Khung giờ mong muốn{" "}
+                      Khung giờ có thể tham gia{" "}
                       <span className="text-destructive">*</span>
                     </legend>
-                    <p className="text-muted-foreground text-xs">
-                      Chọn một khung giờ phù hợp. Bạn nên có mặt trước giờ hẹn
-                      10–15 phút để check-in.
+                    <p
+                      id="preferredSlots-help"
+                      className="text-muted-foreground text-xs"
+                    >
+                      Chọn một hoặc nhiều khung giờ. Hệ thống sẽ xếp bạn vào
+                      khung ít đông nhất trong các lựa chọn.
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {DONATION_SLOTS.map((slot) => (
                         <label
                           key={slot}
-                          className="border-input hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors"
+                          className="border-input hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors"
                         >
                           <input
-                            type="radio"
+                            type="checkbox"
                             value={slot}
-                            className="sr-only"
-                            {...register("slotTime")}
+                            className="accent-primary size-4"
+                            aria-describedby="preferredSlots-help"
+                            {...register("preferredSlots")}
                           />
                           <Clock3
                             className="text-muted-foreground size-4"
@@ -1250,8 +1254,8 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       ))}
                     </div>
                     <FieldError
-                      field="slotTime"
-                      message={errors.slotTime?.message}
+                      field="preferredSlots"
+                      message={errors.preferredSlots?.message}
                     />
                   </fieldset>
 
@@ -1310,14 +1314,20 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         value={BLOOD_TYPE_LABELS[values.bloodType] ?? ""}
                       />
                       <SummaryRow
-                        label="Khung giờ"
-                        value={values.slotTime}
+                        label="Khung giờ mong muốn"
+                        value={values.preferredSlots.join(", ")}
                       />
                       <SummaryRow
                         label="Chiến dịch"
                         value={selectedCampaign?.name ?? ""}
                       />
                     </div>
+
+                    <p className="text-muted-foreground mt-3 flex items-start gap-1.5 text-xs">
+                      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                      Hệ thống sẽ phân bạn vào khung ít đông nhất trong các lựa
+                      chọn trên.
+                    </p>
 
                     {hasHealthFlag ? (
                       <Alert variant="warning" className="mt-4">
@@ -1400,7 +1410,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                     >
                       {submitting ? (
                         <>
-                          <Loader2 className="animate-spin" aria-hidden />
+                          <HeartPulse className="animate-pulse" aria-hidden />
                           Đang gửi hồ sơ...
                         </>
                       ) : (
@@ -1511,36 +1521,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
         </aside>
       </div>
 
-      {/* --- Toast --------------------------------------------------- */}
-      {toast ? (
-        <div
-          className="fixed right-4 bottom-4 z-50 w-[min(92vw,380px)]"
-          role="status"
-          aria-live="polite"
-        >
-          <Alert variant={toast.tone} className="shadow-lg">
-            {toast.tone === "success" ? (
-              <CheckCircle2 />
-            ) : toast.tone === "warning" ? (
-              <AlertTriangle />
-            ) : toast.tone === "info" ? (
-              <Info />
-            ) : (
-              <AlertCircle />
-            )}
-            <AlertTitle className="pr-6">{toast.title}</AlertTitle>
-            <AlertDescription>{toast.description}</AlertDescription>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              className="text-muted-foreground hover:text-foreground absolute top-2 right-2 rounded-md p-1 transition-colors"
-              aria-label="Đóng thông báo"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </Alert>
-        </div>
-      ) : null}
+      <Confetti show={celebrate} />
     </>
   );
 }

@@ -40,7 +40,7 @@ Form dùng `react-hook-form` + `zodResolver(donationRegistrationSchema)` với
 | --- | --- | --- |
 | 1 | Thông tin cá nhân | Họ tên, MSSV, lớp, khoa, ngày sinh, giới tính, SĐT, email sinh viên, CCCD/CMND |
 | 2 | Tiền sử sức khỏe | Cân nặng, chiều cao, nhóm máu (tùy chọn), ngày hiến gần nhất (tùy chọn), 3 câu hỏi Yes/No |
-| 3 | Lịch trình & xác nhận | Chiến dịch, khung giờ, ghi chú, checkbox cam kết |
+| 3 | Lịch trình & xác nhận | Chiến dịch, nhiều khung giờ mong muốn, ghi chú, checkbox cam kết |
 
 ### Điều hướng & validate
 
@@ -61,6 +61,8 @@ Form dùng `react-hook-form` + `zodResolver(donationRegistrationSchema)` với
 - `dateOfBirthSchema`: ngày trong quá khứ, tuổi 0–120.
 - `optionalPastDateSchema`: ngày hiến gần nhất có thể bỏ trống, không được ở tương lai.
 - `donationSlotSchema`: một trong 7 khung giờ cố định trong `DONATION_SLOTS`.
+- `donationSlotListSchema`: mảng 1–7 khung giờ, chuẩn hóa theo thứ tự thời gian và
+  loại trùng; dùng cho `preferredSlots`.
 - `genderSchema`: `MALE | FEMALE | OTHER`.
 - `yesNoSchema`: `YES | NO` (lưu DB dưới dạng boolean).
 - `commitment`: bắt buộc `true` (cam kết khai báo trung thực).
@@ -75,8 +77,15 @@ Form dùng `react-hook-form` + `zodResolver(donationRegistrationSchema)` với
 ### Submit & phản hồi
 
 - Nút gửi có trạng thái loading (`Loader2` + "Đang gửi hồ sơ...").
-- Thành công: toast "Đăng ký thành công", sau ~1.4s chuyển tới
+- Thành công: toast "Đăng ký thành công" kèm khung giờ được phân, sau ~1.4s chuyển tới
   `/student/tracking?registrationId=...`.
+
+### Cân bằng khung giờ
+
+- Sinh viên chọn một hoặc nhiều khung giờ (`preferredSlots`).
+- Trong transaction, server đếm số hồ sơ đang chiếm chỗ theo từng khung của chiến dịch
+  rồi phân vào khung ít đông nhất; nếu bằng nhau thì ưu tiên khung sớm hơn.
+- Hàm thuần: `pickLeastCrowdedSlot` trong `lib/donation-rules.ts`.
 - `PROFILE_REJECTED` → Alert cảnh báo kèm lý do, vẫn có nút xem tiến độ.
 - `ALREADY_REGISTERED` / `CAMPAIGN_FULL` / `STUDENT_CODE_IN_USE` / lỗi validate →
   Alert + toast tương ứng.
@@ -91,7 +100,8 @@ Dữ liệu được lưu ở hai nơi:
   `studentCode` (unique), `className`, `faculty`, `dateOfBirth`, `gender`,
   `phone`, `bloodType`, `lastDonationDate`.
 - **`Registration`** — snapshot tại thời điểm đăng ký:
-  `weightKg`, `heightCm`, `slotTime`, `usedAntibiotics`, `recentTattooOrSurgery`,
+  `weightKg`, `heightCm`, `preferredSlots` (các khung sinh viên chọn), `slotTime`
+  (khung hệ thống phân), `usedAntibiotics`, `recentTattooOrSurgery`,
   `infectiousDiseaseHistory`, `healthDeclarationConfirmed`, `note`.
 
 Migration `20261104000000_student_registration_form` thêm enum `Gender`, các cột trên và

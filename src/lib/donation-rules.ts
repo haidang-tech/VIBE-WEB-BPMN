@@ -155,6 +155,35 @@ export function evaluateHealthRules(input: {
 }
 
 /**
+ * Chọn khung giờ ít đông nhất trong các khung sinh viên đã chọn.
+ * - `preferredSlots` đã được chuẩn hóa theo thứ tự thời gian.
+ * - Khi bằng nhau, giữ khung xuất hiện trước (giờ sớm hơn).
+ * Trả null nếu không có lựa chọn nào.
+ */
+export function pickLeastCrowdedSlot(
+  preferredSlots: readonly string[],
+  countsBySlot: Readonly<Record<string, number>>,
+): string | null {
+  const first = preferredSlots[0];
+
+  if (!first) return null;
+
+  let best = first;
+  let bestCount = countsBySlot[first] ?? 0;
+
+  for (const slot of preferredSlots) {
+    const count = countsBySlot[slot] ?? 0;
+
+    if (count < bestCount) {
+      best = slot;
+      bestCount = count;
+    }
+  }
+
+  return best;
+}
+
+/**
  * Sức chứa tối đa = capacity * overbookRate (làm tròn xuống).
  * Trả 0 nếu dữ liệu campaign không hợp lệ.
  */

@@ -49,6 +49,8 @@ PENDING ──XOR2 đạt──> APPROVED ──OCR check-in──> CHECKED_IN �
 
 ### `Registration`
 - `status` kiểu `RegStatus`, `checkInTime` nullable.
+- `preferredSlots` (`TEXT[]`) lưu các khung sinh viên chọn; `slotTime` lưu khung hệ
+  thống phân sau khi cân bằng tải (Prompt 13).
 - **Partial unique index** `Registration_active_per_campaign_key` trên
   `(userId, campaignId)` chỉ áp dụng cho `PENDING | APPROVED | COMPLETED` — chính là
   XOR 1 ở tầng DB: chặn hồ sơ trùng nhưng vẫn cho phép đăng ký lại sau khi `REJECTED`.

@@ -133,8 +133,10 @@ model Registration {
   weightKg                 Decimal? @db.Decimal(5, 2)
   /// Chiều cao tại thời điểm đăng ký (cm)
   heightCm                 Int?
-  /// Khung giờ hiến máu mong muốn, ví dụ "08:30 - 09:30"
+  /// Khung giờ hiến máu được hệ thống phân, ví dụ "08:30 - 09:30"
   slotTime                 String?
+  /// Các khung giờ sinh viên đã chọn, dùng để cân bằng tải giữa các khung
+  preferredSlots           String[] @default([])
   /// Có dùng thuốc kháng sinh / điều trị bệnh trong 7 ngày qua?
   usedAntibiotics          Boolean?
   /// Có xăm hình, xỏ khuyên hoặc phẫu thuật trong 6 tháng qua?

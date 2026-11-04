@@ -29,7 +29,7 @@ export default function RefreshButton() {
       disabled={pending}
     >
       <RefreshCw
-        className={cn(spinning && "animate-spin")}
+        className={cn(spinning && "animate-pulse")}
         aria-hidden
       />
       Làm mới

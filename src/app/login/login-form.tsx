@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,7 +129,7 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
       <Button type="submit" size="lg" disabled={loading} className="w-full">
         {loading ? (
           <>
-            <Loader2 className="animate-spin" aria-hidden />
+            <ShieldCheck className="animate-pulse" aria-hidden />
             Đang đăng nhập...
           </>
         ) : (

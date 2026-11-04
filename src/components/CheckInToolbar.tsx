@@ -3,10 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { RegStatus } from "@prisma/client";
-import { Loader2, RotateCcw, Search } from "lucide-react";
+import { RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { InfoTooltip } from "@/components/ui/tooltip";
 import { REGISTRATION_STATUS_META } from "@/lib/registration-status";
 
 const STATUS_ORDER: RegStatus[] = [
@@ -169,13 +170,17 @@ export default function CheckInToolbar({
       </div>
 
       <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
-        <p>
-          Tìm theo tên, email, hoặc nhập đúng 12 số CCCD để tra cứu chính xác.
-        </p>
+        <span className="flex items-center gap-1.5">
+          Tìm theo tên, email hoặc CCCD
+          <InfoTooltip
+            label="Nhập đúng 12 số CCCD để tra cứu chính xác. Kết quả tự cập nhật sau khi ngừng gõ."
+            side="top"
+          />
+        </span>
         <p className="flex shrink-0 items-center gap-1.5">
           {pending ? (
             <>
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              <Search className="size-3.5 animate-pulse" aria-hidden />
               Đang lọc...
             </>
           ) : (

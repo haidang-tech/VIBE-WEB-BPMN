@@ -6,11 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
 import type { CampaignStatus } from "@prisma/client";
 import {
-  AlertCircle,
   CalendarDays,
-  CheckCircle2,
-  Info,
-  Loader2,
   MapPin,
   Pencil,
   Plus,
@@ -25,7 +21,6 @@ import {
   deleteCampaign,
   updateCampaign,
 } from "@/actions/admin";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -46,6 +42,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useToast } from "@/components/ui/toast";
+import { InfoTooltip } from "@/components/ui/tooltip";
 import {
   CAMPAIGN_STATUS_META,
   CAMPAIGN_STATUS_OPTIONS,
@@ -86,12 +84,6 @@ type CampaignFormValues = {
   status: CampaignStatus;
 };
 
-type Feedback = {
-  tone: "success" | "destructive";
-  title: string;
-  message: string;
-};
-
 type Props = {
   campaigns: CampaignRow[];
   defaultDate: string;
@@ -99,10 +91,11 @@ type Props = {
 
 export default function CampaignManager({ campaigns, defaultDate }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CampaignRow | null>(null);
 
   const createDefaults: CampaignFormValues = {
     name: "",
@@ -145,13 +138,11 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
 
   function startCreate() {
     setEditingId(null);
-    setFeedback(null);
     reset(createDefaults);
   }
 
   function startEdit(campaign: CampaignRow) {
     setEditingId(campaign.id);
-    setFeedback(null);
     reset({
       name: campaign.name,
       date: campaign.dateInput,
@@ -166,7 +157,6 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
     if (saving) return;
 
     setSaving(true);
-    setFeedback(null);
 
     try {
       const result = editingId
@@ -184,10 +174,10 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
       }
 
       if (result.success) {
-        setFeedback({
+        toast({
           tone: "success",
           title: editingId ? "Đã cập nhật chiến dịch" : "Đã tạo chiến dịch",
-          message: result.message,
+          description: result.message,
         });
 
         if (!editingId) {
@@ -198,16 +188,16 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
         return;
       }
 
-      setFeedback({
+      toast({
         tone: "destructive",
         title: "Không thể lưu chiến dịch",
-        message: result.message,
+        description: result.message,
       });
     } catch {
-      setFeedback({
+      toast({
         tone: "destructive",
         title: "Mất kết nối máy chủ",
-        message: "Không thể gửi dữ liệu. Vui lòng kiểm tra mạng và thử lại.",
+        description: "Không thể gửi dữ liệu. Vui lòng kiểm tra mạng và thử lại.",
       });
     } finally {
       setSaving(false);
@@ -224,15 +214,14 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
     if (!confirmed) return;
 
     setDeletingId(campaign.id);
-    setFeedback(null);
 
     try {
       const result = await deleteCampaign(campaign.id);
 
-      setFeedback({
+      toast({
         tone: result.success ? "success" : "destructive",
         title: result.success ? "Đã xóa chiến dịch" : "Không thể xóa",
-        message: result.message,
+        description: result.message,
       });
 
       if (result.success) {
@@ -242,10 +231,11 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
         router.refresh();
       }
     } catch {
-      setFeedback({
+      toast({
         tone: "destructive",
         title: "Mất kết nối máy chủ",
-        message: "Không thể xóa chiến dịch. Vui lòng kiểm tra mạng và thử lại.",
+        description:
+          "Không thể xóa chiến dịch. Vui lòng kiểm tra mạng và thử lại.",
       });
     } finally {
       setDeletingId(null);
@@ -257,7 +247,13 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Danh sách chiến dịch</h2>
+            <h2 className="flex items-center gap-1.5 text-lg font-semibold">
+              Danh sách chiến dịch
+              <InfoTooltip
+                label="Sức chứa tối đa = chỉ tiêu × tỷ lệ overbook (làm tròn xuống). Chỉ xóa được chiến dịch chưa có hồ sơ đăng ký."
+                side="top"
+              />
+            </h2>
             <p className="text-muted-foreground text-sm">
               {campaigns.length} chiến dịch · quản lý chỉ tiêu và tỷ lệ
               overbook.
@@ -268,14 +264,6 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
             Thêm chiến dịch
           </Button>
         </div>
-
-        {feedback ? (
-          <Alert variant={feedback.tone}>
-            {feedback.tone === "success" ? <CheckCircle2 /> : <AlertCircle />}
-            <AlertTitle>{feedback.title}</AlertTitle>
-            <AlertDescription>{feedback.message}</AlertDescription>
-          </Alert>
-        ) : null}
 
         <Card className="overflow-hidden py-0">
           <CardContent className="px-0 py-0">
@@ -388,7 +376,10 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
                               }
                             >
                               {deleting ? (
-                                <Loader2 className="animate-spin" aria-hidden />
+                                <Trash2
+                                  className="animate-pulse"
+                                  aria-hidden
+                                />
                               ) : (
                                 <Trash2 aria-hidden />
                               )}
@@ -404,12 +395,6 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
             </Table>
           </CardContent>
         </Card>
-
-        <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
-          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Sức chứa tối đa = chỉ tiêu × tỷ lệ overbook (làm tròn xuống). Chỉ có
-          thể xóa chiến dịch chưa có hồ sơ đăng ký.
-        </p>
       </div>
 
       <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
@@ -555,7 +540,7 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
               >
                 {saving ? (
                   <>
-                    <Loader2 className="animate-spin" aria-hidden />
+                    <Save className="animate-pulse" aria-hidden />
                     Đang lưu...
                   </>
                 ) : editingCampaign ? (

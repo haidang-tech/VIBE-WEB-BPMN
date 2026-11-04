@@ -4,13 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AnimatePresence, motion } from "framer-motion";
 import { useForm, type Resolver } from "react-hook-form";
 import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  Loader2,
   Lock,
   ShieldCheck,
   UserRound,
@@ -20,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import {
   registerSchema,
@@ -30,11 +29,6 @@ type RegisterResponse = {
   success: boolean;
   message?: string;
   errors?: Record<string, string>;
-};
-
-type ToastState = {
-  title: string;
-  description: string;
 };
 
 const FIELD_ERROR_ID = (field: string) => `${field}-error`;
@@ -87,10 +81,11 @@ function PasswordRule({
 
 export default function RegisterForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [toast, setToast] = useState<ToastState | null>(null);
+  const [registered, setRegistered] = useState(false);
 
   const {
     register,
@@ -125,17 +120,17 @@ export default function RegisterForm() {
 
   // Toast thành công hiển thị ~1.6s rồi tự chuyển về /login.
   useEffect(() => {
-    if (!toast) return;
+    if (!registered) return;
 
     const timer = window.setTimeout(() => {
       router.push("/login?registered=1");
     }, 1600);
 
     return () => window.clearTimeout(timer);
-  }, [toast, router]);
+  }, [registered, router]);
 
   const onSubmit = handleSubmit(async (values) => {
-    if (submitting || toast) return;
+    if (submitting || registered) return;
 
     setSubmitting(true);
     setFormError(null);
@@ -164,22 +159,36 @@ export default function RegisterForm() {
           }
         }
 
-        setFormError(
+        const message =
           data.message ??
-            "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.",
-        );
+          "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.";
+
+        setFormError(message);
+        toast({
+          tone: "destructive",
+          title: "Không thể đăng ký",
+          description: message,
+        });
         return;
       }
 
-      setToast({
+      toast({
+        tone: "success",
         title: "Đăng ký thành công",
         description:
           data.message ?? "Tài khoản của bạn đã được tạo. Vui lòng đăng nhập.",
       });
+      setRegistered(true);
     } catch {
-      setFormError(
-        "Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.",
-      );
+      const message =
+        "Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.";
+
+      setFormError(message);
+      toast({
+        tone: "destructive",
+        title: "Mất kết nối máy chủ",
+        description: message,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -187,36 +196,7 @@ export default function RegisterForm() {
 
   return (
     <>
-      <AnimatePresence>
-        {toast ? (
-          <motion.div
-            key="register-toast"
-            role="status"
-            aria-live="polite"
-            initial={{ opacity: 0, y: -18, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 320, damping: 26 }}
-            className="border-success/40 bg-card shadow-soft fixed inset-x-4 top-4 z-50 mx-auto flex max-w-sm items-start gap-3 rounded-2xl border p-4 backdrop-blur-md sm:inset-x-auto sm:right-6 sm:mx-0"
-          >
-            <CheckCircle2
-              className="text-success mt-0.5 size-5 shrink-0"
-              aria-hidden
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">{toast.title}</p>
-              <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
-                {toast.description}
-              </p>
-              <p className="text-muted-foreground mt-2 text-[11px]">
-                Đang chuyển đến trang đăng nhập…
-              </p>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <form onSubmit={onSubmit} noValidate className="space-y-6">
         {formError ? (
           <Alert variant="destructive">
             <AlertCircle />
@@ -356,17 +336,17 @@ export default function RegisterForm() {
         <Button
           type="submit"
           size="lg"
-          disabled={submitting || Boolean(toast)}
+          disabled={submitting || registered}
           className="w-full"
         >
-          {toast ? (
+          {registered ? (
             <>
               <CheckCircle2 aria-hidden />
               Đăng ký thành công
             </>
           ) : submitting ? (
             <>
-              <Loader2 className="animate-spin" aria-hidden />
+              <ShieldCheck className="animate-pulse" aria-hidden />
               Đang tạo tài khoản...
             </>
           ) : (

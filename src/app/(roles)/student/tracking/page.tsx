@@ -95,6 +95,8 @@ export default async function StudentTrackingPage({
       createdAt: true,
       updatedAt: true,
       checkInTime: true,
+      slotTime: true,
+      preferredSlots: true,
       campaign: {
         select: {
           name: true,
@@ -287,6 +289,14 @@ export default async function StudentTrackingPage({
                   <DetailRow label="Thời gian hiến máu">
                     {dateTimeFormatter.format(selected.campaign.date)}
                   </DetailRow>
+                  <DetailRow label="Khung giờ được phân">
+                    {selected.slotTime ?? "Chưa xếp"}
+                  </DetailRow>
+                  {selected.preferredSlots.length > 0 ? (
+                    <DetailRow label="Khung giờ mong muốn">
+                      {selected.preferredSlots.join(", ")}
+                    </DetailRow>
+                  ) : null}
                   <DetailRow label="Cập nhật gần nhất">
                     {dateTimeFormatter.format(selected.updatedAt)}
                   </DetailRow>
