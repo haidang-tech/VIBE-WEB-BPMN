@@ -171,6 +171,6 @@ export const config = {
      * Bỏ qua: _next/static, _next/image, favicon, file tĩnh.
      * Mọi request còn lại đều đi qua middleware.
      */
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|woff|woff2|ttf|otf)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|woff|woff2|ttf|otf|wasm|gz)$).*)",
   ],
 };

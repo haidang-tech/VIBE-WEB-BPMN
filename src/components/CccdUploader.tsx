@@ -25,15 +25,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  MOCK_OCR_CCCD_MASKED,
-  MOCK_OCR_DELAY_MS,
-  MOCK_OCR_PROVIDER,
-} from "@/lib/ocr-mock";
+  recognizeCccdNumber,
+  recognizeCccdNumberFromFile,
+  terminateCccdOcrWorker,
+  warmUpCccdOcr,
+} from "@/lib/cccd-ocr";
 import { cn } from "@/lib/utils";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const MAX_CAPTURE_WIDTH = 1280;
+const MAX_CAPTURE_WIDTH = 1920;
 
 type Props = {
   campaignId: string;
@@ -107,6 +110,14 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [autoStartCamera, setAutoStartCamera] = useState(false);
 
+  // Tự động nhận diện CCCD khi camera đang bật.
+  const [autoScanEnabled, setAutoScanEnabled] = useState(true);
+  const [scanPaused, setScanPaused] = useState(false);
+  const [autoScanning, setAutoScanning] = useState(false);
+  const autoScanInFlightRef = useRef(false);
+  const autoScanMissesRef = useRef(0);
+  const [manualCccd, setManualCccd] = useState("");
+
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
@@ -132,6 +143,13 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
     };
   }, [stopCamera]);
 
+  // Giải phóng worker OCR khi rời trang để không giữ bộ nhớ WASM.
+  useEffect(() => {
+    return () => {
+      void terminateCccdOcrWorker();
+    };
+  }, []);
+
   // Gắn stream vào <video> sau khi phần tử được render (cameraActive = true).
   useEffect(() => {
     if (!cameraActive) return;
@@ -155,6 +173,15 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
 
     setFileError(null);
     setResult(null);
+
+    // Tải trước bộ nhận diện để lần quét đầu không phải chờ worker.
+    void warmUpCccdOcr();
+
+    // Ở chế độ tải ảnh, chọn ảnh mới thì xoá số CCCD cũ để tránh đối chiếu nhầm.
+    if (mode === "upload") {
+      setManualCccd("");
+    }
+
     setFile(next);
     setPreviewUrl(URL.createObjectURL(next));
   }
@@ -163,6 +190,7 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
     setFile(null);
     setPreviewUrl(null);
     setFileError(null);
+    setManualCccd("");
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -176,6 +204,9 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       return;
     }
 
+    // Tải bộ nhận diện song song với lúc xin quyền camera.
+    void warmUpCccdOcr();
+
     setCameraStarting(true);
     setCameraError(null);
 
@@ -184,8 +215,8 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
       });
 
@@ -203,6 +234,8 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       }
 
       setCameraActive(true);
+      setScanPaused(false);
+      autoScanMissesRef.current = 0;
     } catch (error) {
       stopCamera();
       setCameraError(cameraErrorMessage(error));
@@ -229,15 +262,19 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
 
     if (next === "upload") {
       stopCamera();
+    } else {
+      void warmUpCccdOcr();
     }
   }
 
-  function capturePhoto() {
+  const captureFrame = useCallback(async (): Promise<{
+    file: File;
+    imageData: ImageData;
+  } | null> => {
     const video = videoRef.current;
 
     if (!video || !video.videoWidth || !video.videoHeight) {
-      setCameraError("Camera chưa sẵn sàng. Vui lòng đợi vài giây rồi thử lại.");
-      return;
+      return null;
     }
 
     const scale = Math.min(1, MAX_CAPTURE_WIDTH / video.videoWidth);
@@ -245,37 +282,187 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);
 
-    const context = canvas.getContext("2d");
-    if (!context) {
-      setCameraError("Trình duyệt không hỗ trợ chụp ảnh từ camera.");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return null;
+
+    try {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.9);
+      });
+
+      if (!blob) return null;
+
+      return {
+        file: new File([blob], `cccd-camera-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        }),
+        imageData,
+      };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  async function capturePhoto() {
+    const captured = await captureFrame();
+
+    if (!captured) {
+      setCameraError(
+        "Camera chưa sẵn sàng hoặc không chụp được ảnh. Vui lòng thử lại.",
+      );
       return;
     }
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    stopCamera();
+    selectFile(captured.file);
+  }
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          setCameraError("Không chụp được ảnh. Vui lòng thử lại.");
+  /**
+   * Tự động chụp frame hiện tại, nhận diện số CCCD in trên thẻ bằng OCR
+   * rồi gửi các ứng viên lên server để đối chiếu hồ sơ.
+   *
+   * Nếu không nhận diện được số nào, tuyệt đối không check-in hộ hồ sơ khác.
+   */
+  const runAutoScan = useCallback(async () => {
+    if (autoScanInFlightRef.current || loading) return;
+    if (!campaignId || !cameraReady) return;
+
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+
+    autoScanInFlightRef.current = true;
+    setAutoScanning(true);
+
+    try {
+      const captured = await captureFrame();
+      if (!captured) return;
+
+      let candidates: string[];
+
+      try {
+        const ocr = await recognizeCccdNumber(captured.imageData);
+        candidates = ocr.candidates.slice(0, 5).map((item) => item.cccd);
+      } catch {
+        setResult({
+          success: false,
+          code: "OCR_ERROR",
+          message:
+            "Không tải được bộ nhận diện CCCD. Vui lòng nhập tay 12 số in trên thẻ.",
+        });
+        setScanPaused(true);
+        return;
+      }
+
+      if (candidates.length === 0) {
+        // Chưa thấy số CCCD trong khung hình: tiếp tục quét.
+        return;
+      }
+
+      // Autofill số nhận diện được để người dùng thấy hệ thống đang đối chiếu đúng thẻ.
+      setManualCccd(candidates[0]);
+
+      const formData = new FormData();
+      formData.append("file", captured.file);
+      formData.append("campaignId", campaignId);
+      formData.append("cccdCandidates", JSON.stringify(candidates));
+      formData.append("source", "CAMERA_AUTO");
+
+      let response: OcrResult;
+
+      try {
+        response = await processCccdOcr(formData);
+      } catch {
+        // Lỗi mạng: xoá autofill để vòng quét tiếp tục thử lại.
+        setManualCccd("");
+        return;
+      }
+
+      if (response.success) {
+        autoScanMissesRef.current = 0;
+        setResult(response);
+        setScanPaused(true);
+        setManualCccd("");
+        router.refresh();
+        return;
+      }
+
+      // Ảnh camera có thể lệch nét ở frame này nhưng rõ hơn ở frame sau.
+      // Với lỗi "không khớp / mơ hồ", thử thêm vài frame trước khi dừng quét
+      // và báo lỗi, tránh việc một lần đọc sai làm gián đoạn trải nghiệm.
+      if (
+        response.code === "CCCD_NOT_FOUND" ||
+        response.code === "AMBIGUOUS_CCCD"
+      ) {
+        autoScanMissesRef.current += 1;
+
+        if (autoScanMissesRef.current < 3) {
+          setManualCccd("");
           return;
         }
 
-        const captured = new File(
-          [blob],
-          `cccd-camera-${Date.now()}.jpg`,
-          { type: "image/jpeg" },
-        );
+        autoScanMissesRef.current = 0;
+        setResult(response);
+        setScanPaused(true);
+        return;
+      }
 
-        stopCamera();
-        selectFile(captured);
-      },
-      "image/jpeg",
-      0.9,
-    );
-  }
+      // Lỗi tạm thời: xoá autofill để vòng quét tiếp tục thử lại.
+      if (
+        response.code === "CONFLICT" ||
+        response.code === "INTERNAL_ERROR" ||
+        response.code === "NETWORK_ERROR"
+      ) {
+        setManualCccd("");
+        return;
+      }
+
+      // Các lỗi còn lại cần người dùng xử lý (CCCD không khớp, hồ sơ chưa
+      // duyệt, đã check-in...): dừng quét và hiển thị kết quả.
+      setResult(response);
+      setScanPaused(true);
+    } finally {
+      autoScanInFlightRef.current = false;
+      setAutoScanning(false);
+    }
+  }, [campaignId, cameraReady, captureFrame, loading, router]);
+
+  // Quét tự động mỗi ~2,6 giây khi camera đang bật và chưa có kết quả.
+  useEffect(() => {
+    if (!cameraActive || !autoScanEnabled || scanPaused || previewUrl) return;
+    if (manualCccd.trim() !== "") return;
+
+    const kickoff = window.setTimeout(() => {
+      void runAutoScan();
+    }, 800);
+    const interval = window.setInterval(() => {
+      void runAutoScan();
+    }, 2600);
+
+    return () => {
+      window.clearTimeout(kickoff);
+      window.clearInterval(interval);
+    };
+  }, [
+    autoScanEnabled,
+    cameraActive,
+    manualCccd,
+    previewUrl,
+    runAutoScan,
+    scanPaused,
+  ]);
 
   async function handleSubmit() {
     if (!file || loading || !campaignId) return;
+
+    const trimmedCccd = manualCccd.trim();
+
+    if (trimmedCccd !== "" && !/^\d{12}$/.test(trimmedCccd)) {
+      setFileError("Số CCCD phải gồm đúng 12 chữ số.");
+      return;
+    }
 
     setLoading(true);
     setResult(null);
@@ -285,6 +472,33 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("campaignId", campaignId);
+      formData.append("source", mode === "camera" ? "CAMERA_MANUAL" : "UPLOAD");
+
+      if (trimmedCccd !== "") {
+        formData.append("cccd", trimmedCccd);
+      } else {
+        let candidates: string[];
+
+        try {
+          const ocr = await recognizeCccdNumberFromFile(file);
+          candidates = ocr.candidates.slice(0, 5).map((item) => item.cccd);
+        } catch {
+          setFileError(
+            "Không tải được bộ nhận diện CCCD. Vui lòng nhập tay 12 số in trên thẻ.",
+          );
+          return;
+        }
+
+        if (candidates.length === 0) {
+          setFileError(
+            "Không nhận diện được số CCCD trên ảnh. Vui lòng nhập tay 12 số in trên thẻ hoặc chụp lại ảnh rõ hơn.",
+          );
+          return;
+        }
+
+        setManualCccd(candidates[0]);
+        formData.append("cccdCandidates", JSON.stringify(candidates));
+      }
 
       const response = await processCccdOcr(formData);
       setResult(response);
@@ -292,6 +506,7 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       if (response.success) {
         setFile(null);
         setPreviewUrl(null);
+        setManualCccd("");
         stopCamera();
         router.refresh();
       }
@@ -314,6 +529,20 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       : "destructive";
 
   const isCameraMode = mode === "camera";
+  const showSuccessStatus = Boolean(result?.success) && scanPaused;
+  const cameraStatusLabel = !cameraReady
+    ? "Đang khởi động camera..."
+    : autoScanning
+      ? "Đang nhận diện số CCCD..."
+      : scanPaused
+        ? result?.success
+          ? "Check-in thành công"
+          : result
+            ? "Cần xử lý kết quả"
+            : "Đã tạm dừng quét"
+        : autoScanEnabled
+          ? "Đưa mặt trước CCCD vào khung hình"
+          : "Tự động quét đang tắt";
 
   return (
     <Card>
@@ -323,8 +552,9 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
           Quét CCCD để check-in
         </CardTitle>
         <CardDescription>
-          Chụp trực tiếp bằng camera hoặc tải ảnh mặt trước CCCD. Hệ thống sẽ đối
-          chiếu và chuyển hồ sơ sang trạng thái đã check-in.
+          Đưa mặt trước CCCD vào khung hình để hệ thống tự nhận diện 12 số CCCD
+          in trên thẻ, hoặc chụp ảnh/tải ảnh thủ công. Hệ thống đối chiếu với hồ
+          sơ và chuyển sang trạng thái đã check-in.
         </CardDescription>
       </CardHeader>
 
@@ -332,11 +562,9 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
         <p className="bg-muted/40 text-muted-foreground flex items-start gap-2 rounded-lg p-2.5 text-xs leading-relaxed">
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
-            Chế độ demo: {MOCK_OCR_PROVIDER} trả về CCCD mẫu{" "}
-            <span className="text-foreground font-mono font-medium">
-              {MOCK_OCR_CCCD_MASKED}
-            </span>{" "}
-            sau {MOCK_OCR_DELAY_MS / 1000} giây.
+            Hệ thống dùng OCR để đọc vùng số CCCD in trên mặt trước thẻ, sau đó
+            đối chiếu với hồ sơ đã duyệt. Nếu ảnh mờ, lóa hoặc không nhận diện
+            được, bạn có thể nhập tay 12 số in trên thẻ.
           </span>
         </p>
 
@@ -439,6 +667,31 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
                   aria-hidden
                   className="pointer-events-none absolute inset-6 rounded-lg border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]"
                 />
+                <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-3">
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur",
+                      autoScanning
+                        ? "bg-primary/90 text-primary-foreground"
+                        : showSuccessStatus
+                          ? "bg-success/90 text-success-foreground"
+                          : scanPaused
+                            ? "bg-amber-500/90 text-white"
+                            : "bg-black/60 text-white",
+                    )}
+                  >
+                    {!cameraReady || autoScanning ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : showSuccessStatus ? (
+                      <CheckCircle2 className="size-3.5" aria-hidden />
+                    ) : scanPaused ? (
+                      <AlertCircle className="size-3.5" aria-hidden />
+                    ) : (
+                      <ScanLine className="size-3.5" aria-hidden />
+                    )}
+                    {cameraStatusLabel}
+                  </span>
+                </div>
                 <div className="absolute inset-x-0 bottom-0 flex flex-wrap justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent p-3">
                   <Button
                     type="button"
@@ -467,10 +720,11 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
                   <Camera className="size-6" aria-hidden />
                 </div>
                 <p className="mt-3 text-sm font-medium">
-                  Dùng camera để quét CCCD
+                  Dùng camera để nhận diện số CCCD
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  Đặt CCCD trong khung hình, đủ ánh sáng và không bị lóa.
+                  Đặt mặt trước CCCD trong khung hình, để phần số CCCD rõ nét và
+                  đủ ánh sáng.
                 </p>
                 <Button
                   type="button"
@@ -502,6 +756,39 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
               <p role="alert" className="text-destructive text-xs leading-relaxed">
                 {cameraError}
               </p>
+            ) : null}
+
+            {cameraActive ? (
+              <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                <div className="flex items-start gap-2">
+                  <ScanLine
+                    className="text-primary mt-0.5 size-4 shrink-0"
+                    aria-hidden
+                  />
+                  <div>
+                    <p className="text-sm font-medium">
+                      Tự động nhận diện CCCD
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      Tự nhận diện số CCCD khi thẻ nằm trong khung hình.
+                    </p>
+                  </div>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    className="accent-primary size-4"
+                    checked={autoScanEnabled}
+                    disabled={loading}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      setAutoScanEnabled(enabled);
+                      if (enabled) setScanPaused(false);
+                    }}
+                  />
+                  {autoScanEnabled ? "Đang bật" : "Đang tắt"}
+                </label>
+              </div>
             ) : null}
           </div>
         ) : (
@@ -544,6 +831,32 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
             </Button>
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="manual-cccd" className="text-xs">
+            Số CCCD (12 chữ số)
+          </Label>
+          <Input
+            id="manual-cccd"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="Ví dụ: 001203004567"
+            value={manualCccd}
+            maxLength={12}
+            disabled={loading}
+            onChange={(event) => {
+              setManualCccd(
+                event.target.value.replace(/\D/g, "").slice(0, 12),
+              );
+              setScanPaused(false);
+            }}
+          />
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            Hệ thống tự nhận diện 12 số in trên thẻ và điền vào đây. Nếu ảnh mờ
+            hoặc không nhận diện được, nhập tay 12 số in trên thẻ rồi bấm
+            Check-in.
+          </p>
+        </div>
 
         <input
           ref={inputRef}
@@ -627,6 +940,24 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
                     </dd>
                   </div>
                 </dl>
+              ) : null}
+
+              {isCameraMode && cameraActive && scanPaused ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => {
+                    setResult(null);
+                    setScanPaused(false);
+                    setManualCccd("");
+                    autoScanMissesRef.current = 0;
+                  }}
+                >
+                  <RefreshCw aria-hidden />
+                  Quét tiếp
+                </Button>
               ) : null}
             </AlertDescription>
           </Alert>

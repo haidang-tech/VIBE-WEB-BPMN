@@ -104,3 +104,14 @@ Copy & Paste từng prompt dưới đây vào Opencode CLI theo đúng thứ t�
 > - Xây dựng giao diện `src/app/(auth)/register/page.tsx` sử dụng Tailwind CSS và Shadcn UI. Form cần giữ thiết kế tối màu (dark theme), bắt lỗi realtime từ Zod và có nút chuyển hướng nhanh sang trang Login.
 > - Viết Server Action hoặc API Route (`src/app/api/auth/register/route.ts`): Nhận dữ liệu từ form, kiểm tra xem Email đã tồn tại trong DB chưa. Nếu chưa, sử dụng `bcrypt` để hash mật khẩu và tạo bản ghi mới vào bảng `User` với trường `role` được gán mặc định là `STUDENT`.
 > - Xử lý UI/UX: Hiển thị trạng thái loading khi đang submit, dùng Toast notification thông báo thành công và tự động redirect người dùng về trang `/login`."
+
+### Prompt 10: Nâng cấp chức năng chụp ảnh camera hiện tại trong trang Check-in chiến dịch Hiến máu (Next.js / React) thành tính năng tự động nhận diện và trích xuất số CCCD từ thẻ căn cước.
+
+> Yêu cầu cụ thể:
+>
+> 1. Giữ nguyên luồng giao diện nút "Bật camera" và khung hiển thị video stream hiện tại, đảm bảo đã khắc phục lỗi liên quan đến quyền truy cập camera (`navigator.mediaDevices.getUserMedia`) và chính sách bảo mật trình duyệt (`Permissions policy`).
+> 2. Tích hợp thư viện xử lý ảnh/OCR ở phía client (hoặc gọi API OCR giả lập/thực tế đã cấu hình trong dự án) để quét vùng chứa số CCCD 12 chữ số ngay khi người dùng đưa thẻ vào khung hình hoặc sau khi bấm chụp.
+> 3. Khi nhận diện thành công số CCCD:
+>    - Tự động điền (autofill) hoặc so khớp giá trị số CCCD vừa quét được với danh sách hồ sơ trong cơ sở dữ liệu/trạng thái hiện tại.
+>    - Chuyển đổi trạng thái hồ sơ sang trạng thái check-in hợp lệ.
+> 4. Xử lý các trường hợp ngoại lệ (fallback): Cho phép người dùng chuyển đổi linh hoạt giữa chế độ "Quét bằng Camera" và "Tải ảnh lên" thủ công như thiết kế ban đầu nếu điều kiện ánh sáng kém.
