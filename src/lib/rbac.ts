@@ -26,8 +26,10 @@ export const ROLE_PREFIX: Record<UserRole, string> = {
 /** Các route công khai, không cần JWT */
 export const PUBLIC_PATHS = [
   "/login",
+  "/register",
   "/403",
   "/api/auth/login",
+  "/api/auth/register",
   "/api/internal/audit",
 ] as const;
 

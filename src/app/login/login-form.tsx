@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties, type FormEvent } from "react";
+import Link from "next/link";
 
 type LoginResult = {
   success: boolean;
@@ -179,6 +180,16 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
 
       <p style={{ margin: "14px 0 0", color: "#64748b", fontSize: 12, textAlign: "center" }}>
         Tài khoản demo được tạo bởi <code>prisma/seed.ts</code>.
+      </p>
+
+      <p style={{ margin: "10px 0 0", color: "#94a3b8", fontSize: 14, textAlign: "center" }}>
+        Chưa có tài khoản?{" "}
+        <Link
+          href="/register"
+          style={{ color: "#f87171", fontWeight: 600, textDecoration: "none" }}
+        >
+          Đăng ký ngay
+        </Link>
       </p>
     </form>
   );

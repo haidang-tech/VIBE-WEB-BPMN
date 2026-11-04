@@ -19,7 +19,7 @@ import {
  * 4. Ghi AuditLog khi chặn truy cập (qua endpoint nội bộ, vì Edge không dùng Prisma).
  */
 
-const AUTH_PATHS = new Set(["/login"]);
+const AUTH_PATHS = new Set(["/login", "/register"]);
 
 function nextWithSession(req: NextRequest, session: SessionPayload | null) {
   const headers = new Headers(req.headers);

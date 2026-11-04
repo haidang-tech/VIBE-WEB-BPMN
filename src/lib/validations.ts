@@ -91,6 +91,29 @@ export const loginSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 // ---------------------------------------------------------------------------
+// Đăng ký tài khoản sinh viên
+// ---------------------------------------------------------------------------
+
+export const registerSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Họ tên tối thiểu 2 ký tự")
+      .max(100, "Họ tên tối đa 100 ký tự"),
+    email: emailSchema,
+    // Dùng chung policy với tài khoản nội bộ: tối thiểu 8 ký tự + độ phức tạp.
+    password: passwordPolicySchema,
+    confirmPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Mật khẩu xác nhận không khớp",
+    path: ["confirmPassword"],
+  });
+
+export type RegisterInput = z.infer<typeof registerSchema>;
+
+// ---------------------------------------------------------------------------
 // Đăng ký hiến máu (XOR 2)
 // ---------------------------------------------------------------------------
 

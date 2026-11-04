@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string | string[] }>;
+  searchParams: Promise<{ next?: string | string[]; registered?: string | string[] }>;
 }) {
   const session = await getSession();
 
@@ -22,6 +22,7 @@ export default async function LoginPage({
   }
 
   const params = await searchParams;
+  const registered = params.registered === "1";
   const rawNext = params.next;
   const nextPath =
     typeof rawNext === "string" &&
@@ -76,6 +77,24 @@ export default async function LoginPage({
             Đăng nhập để tiếp tục
           </p>
         </div>
+
+        {registered ? (
+          <div
+            role="status"
+            style={{
+              marginBottom: 16,
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #166534",
+              backgroundColor: "#052e16",
+              color: "#bbf7d0",
+              fontSize: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            Đăng ký thành công. Vui lòng đăng nhập bằng tài khoản vừa tạo.
+          </div>
+        ) : null}
 
         <LoginForm nextPath={nextPath} />
       </div>
