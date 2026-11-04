@@ -170,8 +170,7 @@ export default async function OrganizerCheckInPage({
           Check-in chiến dịch
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm">
-          Danh sách hồ sơ cần check-in, tìm kiếm và lọc theo trạng thái. Quét
-          ảnh CCCD để xác nhận sinh viên đã đến chiến dịch.
+          Theo dõi hồ sơ, quét CCCD và check-in sinh viên khi đến chiến dịch.
         </p>
       </div>
       <RefreshButton />
@@ -189,8 +188,8 @@ export default async function OrganizerCheckInPage({
             </div>
             <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
             <CardDescription>
-              Ban tổ chức chưa mở chiến dịch nào. Hãy tạo hoặc kích hoạt chiến
-              dịch trước khi check-in.
+              Chưa có chiến dịch đang mở. Hãy tạo hoặc kích hoạt chiến dịch
+              trước.
             </CardDescription>
           </CardHeader>
         </Card>

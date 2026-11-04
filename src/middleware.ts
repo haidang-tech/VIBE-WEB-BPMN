@@ -45,17 +45,69 @@ function forbiddenPage(session: SessionPayload): NextResponse {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>403 — Không có quyền truy cập</title>
+  <style>
+    :root {
+      --bg: #fff7f8;
+      --card: #ffffff;
+      --fg: #1f2430;
+      --muted: #6b7280;
+      --primary: #e11d48;
+      --primary-fg: #ffffff;
+      --border: #f1d5da;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #171a22;
+        --card: #1f232d;
+        --fg: #e6e8ee;
+        --muted: #a1a7b3;
+        --primary: #f43f5e;
+        --primary-fg: #1a1013;
+        --border: rgba(255, 255, 255, 0.12);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main {
+      width: 100%;
+      max-width: 440px;
+      padding: 40px 32px;
+      text-align: center;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.35);
+    }
+    .code { margin: 0; font-size: 64px; font-weight: 800; color: var(--primary); }
+    h1 { margin: 8px 0 0; font-size: 22px; }
+    p { margin: 8px 0 0; color: var(--muted); line-height: 1.6; }
+    a {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 22px;
+      border-radius: 14px;
+      background: var(--primary);
+      color: var(--primary-fg);
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
 </head>
-<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e2e8f0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
-  <main style="max-width:520px;padding:40px;text-align:center;">
-    <p style="font-size:72px;font-weight:800;margin:0;color:#f87171;">403</p>
-    <h1 style="font-size:24px;margin:12px 0;">Không có quyền truy cập</h1>
-    <p style="color:#94a3b8;line-height:1.6;">
-      Tài khoản của bạn không được phép truy cập trang này.
-    </p>
-    <a href="${home}" style="display:inline-block;margin-top:12px;padding:12px 20px;border-radius:10px;background:#dc2626;color:#fff;text-decoration:none;font-weight:600;">
-      Về trang chủ
-    </a>
+<body>
+  <main>
+    <p class="code">403</p>
+    <h1>Không có quyền truy cập</h1>
+    <p>Tài khoản của bạn không được phép truy cập trang này.</p>
+    <a href="${home}">Về trang chủ</a>
   </main>
 </body>
 </html>`;

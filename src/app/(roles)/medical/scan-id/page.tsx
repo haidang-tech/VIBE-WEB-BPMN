@@ -107,9 +107,8 @@ export default async function MedicalScanIdPage({
           Quét CCCD khám sức khỏe
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm">
-          Quét CCCD để mở đúng hồ sơ sinh viên và nhập chỉ số khám. Thao tác
-          này không check-in — trạng thái hồ sơ chỉ thay đổi sau khi lưu kết quả
-          khám.
+          Quét CCCD để mở hồ sơ và nhập chỉ số khám. Hồ sơ chỉ đổi trạng thái
+          sau khi lưu kết quả.
         </p>
       </div>
       <div className="flex gap-2">
@@ -135,7 +134,7 @@ export default async function MedicalScanIdPage({
             </div>
             <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
             <CardDescription>
-              Cần kích hoạt chiến dịch trước khi quét CCCD khám sức khỏe.
+              Kích hoạt chiến dịch để bắt đầu quét CCCD.
             </CardDescription>
           </CardHeader>
         </Card>

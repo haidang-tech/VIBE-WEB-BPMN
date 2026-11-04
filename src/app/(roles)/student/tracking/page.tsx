@@ -135,8 +135,7 @@ export default async function StudentTrackingPage({
             Theo dõi tiến độ hiến máu
           </h1>
           <p className="text-muted-foreground max-w-2xl text-sm">
-            Cập nhật trạng thái hồ sơ theo từng bước: Đăng ký → Duyệt →
-            Check-in → Khám → Hoàn thành.
+            Theo dõi từng bước: Đăng ký → Duyệt → Check-in → Khám → Hoàn thành.
           </p>
         </div>
 
@@ -170,10 +169,9 @@ export default async function StudentTrackingPage({
             <div className="bg-muted mx-auto mb-2 grid size-12 place-items-center rounded-full">
               <ClipboardList className="text-muted-foreground size-6" />
             </div>
-            <CardTitle>Bạn chưa có hồ sơ hiến máu</CardTitle>
+            <CardTitle>Chưa có hồ sơ hiến máu</CardTitle>
             <CardDescription>
-              Đăng ký tham gia một chiến dịch hiến máu để bắt đầu theo dõi tiến
-              độ tại đây.
+              Đăng ký một chiến dịch để bắt đầu theo dõi tiến độ.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -378,8 +376,7 @@ export default async function StudentTrackingPage({
                     <div className="text-muted-foreground flex items-start gap-2 text-sm">
                       <Stethoscope className="mt-0.5 size-4 shrink-0" />
                       <p>
-                        Chưa có kết quả khám sức khỏe. Kết quả sẽ xuất hiện sau
-                        khi bạn check-in và được nhân viên y tế nhập chỉ số.
+                        Kết quả sẽ hiện sau khi bạn check-in và được nhập chỉ số.
                       </p>
                     </div>
                   )}
@@ -395,9 +392,8 @@ export default async function StudentTrackingPage({
                 </AlertTitle>
                 <AlertDescription>
                   <p>
-                    Nếu thông tin cá nhân thay đổi hoặc bạn cần hỗ trợ, vui lòng
-                    liên hệ ban tổ chức. Bạn có thể đăng ký lại nếu hồ sơ cũ đã
-                    kết thúc.
+                    Liên hệ ban tổ chức nếu cần hỗ trợ. Bạn có thể đăng ký lại
+                    khi hồ sơ cũ đã kết thúc.
                   </p>
                   <Button
                     asChild

@@ -564,8 +564,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
               Hồ sơ đăng ký hiến máu
             </CardTitle>
             <CardDescription>
-              Hoàn thành 3 bước: thông tin cá nhân, tiền sử sức khỏe và chọn
-              khung giờ. Hệ thống kiểm tra điều kiện ngay khi bạn nhập liệu.
+              Điền 3 bước, hệ thống kiểm tra điều kiện ngay khi bạn nhập.
             </CardDescription>
           </CardHeader>
 

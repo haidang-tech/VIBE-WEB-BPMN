@@ -11,10 +11,19 @@ export const metadata: Metadata = {
     "Hệ thống đăng ký và quản lý hiến máu cho sinh viên Trường Đại học Kinh tế - ĐHĐN",
 };
 
+/**
+ * Áp theme trước khi paint để tránh nháy sáng/tối (FOUC).
+ * Ưu tiên lựa chọn đã lưu, sau đó tới cài đặt hệ thống.
+ */
+const THEME_SCRIPT = `(function(){try{var stored=localStorage.getItem('due-theme');var dark=stored?stored==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',dark);}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="vi" className="dark">
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+    <html lang="vi" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
+      <body className="app-surface min-h-screen bg-background font-sans text-foreground antialiased">
         {children}
       </body>
     </html>

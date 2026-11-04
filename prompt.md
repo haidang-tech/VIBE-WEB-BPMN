@@ -120,3 +120,22 @@ Copy & Paste từng prompt dưới đây vào Opencode CLI theo đúng thứ t�
 
 > 1. Các nhóm thông tin cần bổ sung:Thông tin sinh viên: Họ và tên, MSSV, Lớp, Khoa, Ngày sinh, Giới tính, Số điện thoại, Email sinh viên (@due.edu.vn), Số CCCD/CMND.Chỉ số thể trạng: Cân nặng (kg), Chiều cao (cm), Nhóm máu (nếu biết), Ngày hiến máu gần nhất (nếu có).Khảo sát tiền sử sức khỏe (Checklist Yes/No):Có đang dùng thuốc kháng sinh / điều trị bệnh trong 7 ngày qua không?Có xăm hình, xỏ khuyên, hoặc phẫu thuật trong 6 tháng gần đây không?Có tiền sử mắc bệnh truyền nhiễm, dị ứng nặng, hoặc ngất khi lấy máu không?Đăng ký lịch trình: Chọn ca hiến máu / khung giờ mong muốn (Slot time).Xác nhận: Checkbox cam kết khai báo thông tin trung thực.
 > 2. Yêu cầu Kỹ thuật & UX/UI:Chia form thành 3 section/bước rõ ràng (Thông tin cá nhân $\rightarrow$ Tiền sử sức khỏe $\rightarrow$ Chọn khung giờ).Thêm Validation chặt chẽ (MSSV, SĐT, CCCD đúng định dạng; cảnh báo nếu cân nặng $< 45\text{ kg}$).Giao diện Tailwind CSS hiện đại, responsive mượt trên Mobile, có Toast thông báo và hiệu ứng Loading khi bấm Submit.
+
+### Prompt 12: Tái cấu trúc toàn bộ UI/UX của hệ thống Quản lý Hiến máu. Giao diện hiện tại đang hơi khô khan và nhiều chữ, tôi cần một UI mang phong cách trẻ trung, hiện đại, clean và chuẩn "vibe" sinh viên.
+
+> **Yêu cầu cụ thể cho UI/UX:**
+>
+> 1. **Dọn dẹp Content (Microcopy):**
+>    - Xóa bỏ toàn bộ các đoạn text vô nghĩa, placeholder dư thừa.
+>    - Thay thế các câu văn dài dòng bằng văn bản (microcopy) tiếng Việt ngắn gọn, súc tích, thân thiện và có tính kêu gọi hành động cao (Ví dụ: Thay "Vui lòng nhập thông tin cá nhân của bạn vào biểu mẫu dưới đây" thành "Thông tin của bạn").
+> 2. **Color Palette (Phối màu tươi sáng):**
+>    - Sử dụng tone màu Đỏ/Đỏ Hồng (Rose/Crimson) làm màu chủ đạo (tượng trưng cho máu và nhiệt huyết) nhưng sắc độ phải tươi tắn, không bị "già".
+>    - Kết hợp với nền Trắng/Xám siêu nhạt để tạo không gian thoáng (breathing room).
+>    - Bo góc các card, form và button (sử dụng `rounded-xl` hoặc `rounded-2xl` của Tailwind) kết hợp với shadow mềm mại để tạo chiều sâu.
+> 3. **Tính năng Dark / Light Mode (Bắt buộc):**
+>    - Code chức năng toggle Dark/Light mode với hiệu ứng transition mượt mà.
+>    - **Light Mode:** Nền trắng sáng, text xám đậm, màu nhấn nổi bật.
+>    - **Dark Mode:** Sử dụng nền xám đen sâu (như `bg-slate-900` hoặc `bg-zinc-900`), text màu sáng (slate-200), điều chỉnh giảm độ chói của các màu Đỏ chủ đạo để không làm mỏi mắt sinh viên khi dùng ban đêm.
+> 4. **Component & Layout:**
+>    - Áp dụng layout grid/flexbox gọn gàng.
+>    - Thêm icon (Heroicons/Lucide) vào cạnh các tiêu đề hoặc nút bấm để giao diện trực quan, bớt dựa vào text.

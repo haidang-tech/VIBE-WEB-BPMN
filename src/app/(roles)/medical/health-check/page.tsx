@@ -146,8 +146,7 @@ export default async function MedicalHealthCheckPage({
           Khám sức khỏe & chốt kết quả
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm">
-          Nhập nhanh huyết áp, nhịp tim, cân nặng, nhóm máu và lượng máu. Hồ sơ
-          đạt cổng XOR 3 sẽ chuyển sang bước chốt kết quả hiến máu.
+          Nhập chỉ số khám và chốt kết quả hiến máu cho từng hồ sơ.
         </p>
       </div>
       <RefreshButton />
@@ -165,8 +164,7 @@ export default async function MedicalHealthCheckPage({
             </div>
             <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
             <CardDescription>
-              Cần kích hoạt chiến dịch trước khi nhân viên y tế có thể khám và
-              chốt kết quả hiến máu.
+              Kích hoạt chiến dịch để bắt đầu khám và chốt kết quả.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -396,8 +394,7 @@ export default async function MedicalHealthCheckPage({
                 </div>
                 <CardTitle>Chọn một hồ sơ để bắt đầu</CardTitle>
                 <CardDescription>
-                  Hàng chờ bên trái hiển thị các hồ sơ đã duyệt, đã check-in và
-                  các ca đang chờ chốt kết quả.
+                  Chọn hồ sơ ở hàng chờ bên trái để nhập chỉ số.
                 </CardDescription>
               </CardHeader>
             </Card>

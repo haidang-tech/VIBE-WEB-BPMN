@@ -34,7 +34,7 @@ export default function MedicalNav() {
             href={link.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",

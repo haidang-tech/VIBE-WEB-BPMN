@@ -2,90 +2,103 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --radius: 0.625rem;
+/*
+ * Design system — Prompt 12
+ * - Light: nền trắng/ hồng phấn siêu nhạt, chữ xám đậm, nhấn Rose/Crimson tươi.
+ * - Dark: nền slate đậm, chữ sáng, đỏ giảm chói để đỡ mỏi mắt.
+ * - Bo góc lớn (rounded-xl/2xl) + shadow mềm tạo cảm giác trẻ trung.
+ */
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+:root {
+  --radius: 0.9rem;
+
+  --background: oklch(0.993 0.004 20);
+  --foreground: oklch(0.23 0.03 264);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.23 0.03 264);
 
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
+  --popover-foreground: oklch(0.23 0.03 264);
 
-  --primary: oklch(0.577 0.245 27.325);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Rose/Crimson tươi, trẻ trung */
+  --primary: oklch(0.63 0.24 18);
+  --primary-foreground: oklch(0.99 0.005 20);
 
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.962 0.012 20);
+  --secondary-foreground: oklch(0.3 0.04 264);
 
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
+  --muted: oklch(0.965 0.008 250);
+  --muted-foreground: oklch(0.52 0.03 257);
 
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --accent: oklch(0.955 0.022 15);
+  --accent-foreground: oklch(0.36 0.09 18);
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.58 0.24 27);
+  --destructive-foreground: oklch(0.99 0.005 20);
 
-  --success: oklch(0.627 0.194 149.214);
-  --success-foreground: oklch(0.985 0 0);
+  --success: oklch(0.6 0.16 155);
+  --success-foreground: oklch(0.99 0.005 155);
 
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.208 0.042 265.755);
+  --warning: oklch(0.78 0.16 70);
+  --warning-foreground: oklch(0.26 0.05 60);
 
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --border: oklch(0.9 0.012 20);
+  --input: oklch(0.9 0.012 20);
+  --ring: oklch(0.63 0.24 18);
 
-  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-1: oklch(0.63 0.24 18);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
+
+  color-scheme: light;
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
+  --background: oklch(0.18 0.015 265);
+  --foreground: oklch(0.92 0.01 260);
 
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.22 0.02 265);
+  --card-foreground: oklch(0.92 0.01 260);
 
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.22 0.02 265);
+  --popover-foreground: oklch(0.92 0.01 260);
 
-  --primary: oklch(0.637 0.237 25.331);
-  --primary-foreground: oklch(0.984 0.003 247.858);
+  /* Giảm độ chói của đỏ khi dùng ban đêm */
+  --primary: oklch(0.66 0.2 18);
+  --primary-foreground: oklch(0.16 0.02 20);
 
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.28 0.02 265);
+  --secondary-foreground: oklch(0.92 0.01 260);
 
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
+  --muted: oklch(0.28 0.02 265);
+  --muted-foreground: oklch(0.72 0.02 260);
 
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  --accent: oklch(0.3 0.04 20);
+  --accent-foreground: oklch(0.95 0.01 20);
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.68 0.19 22);
+  --destructive-foreground: oklch(0.16 0.02 20);
 
-  --success: oklch(0.696 0.17 162.48);
-  --success-foreground: oklch(0.129 0.042 264.695);
+  --success: oklch(0.7 0.15 160);
+  --success-foreground: oklch(0.16 0.02 160);
 
-  --warning: oklch(0.828 0.189 84.429);
-  --warning-foreground: oklch(0.208 0.042 265.755);
+  --warning: oklch(0.8 0.15 80);
+  --warning-foreground: oklch(0.2 0.03 80);
 
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.551 0.027 264.364);
+  --ring: oklch(0.66 0.2 18);
 
-  --chart-1: oklch(0.704 0.191 22.216);
+  --chart-1: oklch(0.66 0.2 18);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -123,10 +136,11 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
 }
 
 @layer base {
@@ -140,9 +154,41 @@
 
   body {
     @apply bg-background text-foreground;
+    transition:
+      background-color 300ms ease,
+      color 300ms ease;
   }
 
   ::selection {
-    @apply bg-primary/30 text-foreground;
+    @apply bg-primary/25 text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Nền trang có chút hồng phấn để không bị "khô". */
+  .app-surface {
+    background-image:
+      radial-gradient(
+        900px 420px at 12% -8%,
+        color-mix(in oklab, var(--primary) 10%, transparent) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        700px 380px at 105% 0%,
+        color-mix(in oklab, var(--primary) 6%, transparent) 0%,
+        transparent 55%
+      );
+  }
+
+  .shadow-soft {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 0.04),
+      0 12px 32px -18px oklch(0 0 0 / 0.18);
+  }
+
+  .dark .shadow-soft {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 0.3),
+      0 18px 40px -20px oklch(0 0 0 / 0.6);
   }
 }

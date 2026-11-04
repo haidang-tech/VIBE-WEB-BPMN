@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getSession } from "@/lib/auth";
 import { ROLE_HOME } from "@/lib/rbac";
 import LoginForm from "./login-form";
@@ -32,48 +41,28 @@ export default async function LoginPage({
       : undefined;
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-        background:
-          "radial-gradient(1200px 600px at 20% -10%, #3f1d1d 0%, transparent 60%), radial-gradient(900px 500px at 110% 110%, #1e1b4b 0%, transparent 55%), #0f172a",
-      }}
-    >
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
       <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          padding: 32,
-          borderRadius: 20,
-          border: "1px solid #1e293b",
-          backgroundColor: "rgba(15, 23, 42, 0.86)",
-          boxShadow: "0 30px 80px rgba(0, 0, 0, 0.45)",
-          backdropFilter: "blur(12px)",
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
+        aria-hidden
+        className="bg-primary/15 pointer-events-none absolute -top-40 -left-32 size-[520px] rounded-full blur-[120px]"
+      />
+      <div
+        aria-hidden
+        className="bg-primary/10 pointer-events-none absolute -right-32 -bottom-40 size-[480px] rounded-full blur-[120px]"
+      />
+
+      <ThemeToggle className="absolute top-4 right-4 z-10" />
+
+      <div className="relative w-full max-w-md">
+        <div className="mb-6 text-center">
           <div
             aria-hidden
-            style={{
-              width: 56,
-              height: 56,
-              margin: "0 auto 12px",
-              borderRadius: 16,
-              display: "grid",
-              placeItems: "center",
-              background: "linear-gradient(135deg, #ef4444, #991b1b)",
-              fontSize: 26,
-            }}
+            className="from-primary to-primary/70 mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-gradient-to-br text-2xl shadow-lg shadow-primary/25"
           >
             🩸
           </div>
-          <h1 style={{ margin: 0, fontSize: 24, letterSpacing: -0.3 }}>
-            Hiến máu DUE
-          </h1>
-          <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: 14 }}>
+          <h1 className="text-2xl font-semibold tracking-tight">Hiến máu DUE</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Đăng nhập để tiếp tục
           </p>
         </div>
@@ -81,22 +70,24 @@ export default async function LoginPage({
         {registered ? (
           <div
             role="status"
-            style={{
-              marginBottom: 16,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #166534",
-              backgroundColor: "#052e16",
-              color: "#bbf7d0",
-              fontSize: 14,
-              lineHeight: 1.5,
-            }}
+            className="border-success/40 bg-success/10 text-success mb-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm"
           >
-            Đăng ký thành công. Vui lòng đăng nhập bằng tài khoản vừa tạo.
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>Đăng ký thành công. Đăng nhập bằng tài khoản vừa tạo nhé!</span>
           </div>
         ) : null}
 
-        <LoginForm nextPath={nextPath} />
+        <Card className="shadow-soft backdrop-blur">
+          <CardHeader>
+            <CardTitle className="text-base">Chào mừng trở lại</CardTitle>
+            <CardDescription>
+              Nhập tài khoản sinh viên hoặc cán bộ để tiếp tục.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LoginForm nextPath={nextPath} />
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

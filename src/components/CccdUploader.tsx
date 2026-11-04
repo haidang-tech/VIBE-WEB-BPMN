@@ -606,19 +606,18 @@ export default function CccdUploader({
         </CardTitle>
         <CardDescription>
           {isMedical
-            ? "Đưa mặt trước CCCD vào khung hình để hệ thống nhận diện 12 số CCCD, mở đúng hồ sơ sinh viên và chuyển sang form nhập chỉ số khám. Thao tác này không check-in."
-            : "Đưa mặt trước CCCD vào khung hình để hệ thống tự nhận diện 12 số CCCD in trên thẻ, hoặc chụp ảnh/tải ảnh thủ công. Hệ thống đối chiếu với hồ sơ và chuyển sang trạng thái đã check-in."}
+            ? "Đưa mặt trước CCCD vào khung hình để mở hồ sơ và nhập chỉ số khám. Thao tác này không check-in."
+            : "Đưa mặt trước CCCD vào khung hình để nhận diện 12 số và check-in."}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <p className="bg-muted/40 text-muted-foreground flex items-start gap-2 rounded-lg p-2.5 text-xs leading-relaxed">
+        <p className="bg-muted/40 text-muted-foreground flex items-start gap-2 rounded-xl p-2.5 text-xs leading-relaxed">
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
-            Hệ thống dùng OCR để đọc vùng số CCCD in trên mặt trước thẻ, sau đó
-            đối chiếu với hồ sơ {isMedical ? "trong chiến dịch đang chọn" : "đã duyệt"}.
-            Nếu ảnh mờ, lóa hoặc không nhận diện được, bạn có thể nhập tay 12 số
-            in trên thẻ.
+            OCR đọc vùng số trên mặt trước thẻ rồi đối chiếu hồ sơ{" "}
+            {isMedical ? "trong chiến dịch đang chọn" : "đã duyệt"}. Ảnh mờ thì
+            nhập tay 12 số in trên thẻ.
           </span>
         </p>
 
@@ -708,7 +707,7 @@ export default function CccdUploader({
         ) : isCameraMode ? (
           <div className="space-y-3">
             {cameraActive ? (
-              <div className="relative overflow-hidden rounded-xl border border-slate-800 bg-black">
+              <div className="relative overflow-hidden rounded-xl border border-border bg-black">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -906,8 +905,7 @@ export default function CccdUploader({
             }}
           />
           <p className="text-muted-foreground text-xs leading-relaxed">
-            Hệ thống tự nhận diện 12 số in trên thẻ và điền vào đây. Nếu ảnh mờ
-            hoặc không nhận diện được, nhập tay 12 số in trên thẻ rồi bấm
+            Hệ thống tự điền 12 số nhận diện được. Nếu ảnh mờ, nhập tay rồi bấm
             Check-in.
           </p>
         </div>

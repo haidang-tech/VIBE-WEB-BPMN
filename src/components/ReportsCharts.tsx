@@ -194,7 +194,7 @@ export default function ReportsCharts({
                   <Bar
                     dataKey="volume"
                     name="Lượng máu (ml)"
-                    fill="#dc2626"
+                    fill="var(--color-primary)"
                     radius={[6, 6, 0, 0]}
                     maxBarSize={64}
                   />

@@ -62,7 +62,7 @@ const BLOOD_TYPE_META: Record<
   "A" | "B" | "AB" | "O",
   { color: string }
 > = {
-  A: { color: "#dc2626" },
+  A: { color: "#e11d48" },
   B: { color: "#0ea5e9" },
   AB: { color: "#8b5cf6" },
   O: { color: "#16a34a" },
@@ -209,8 +209,7 @@ export default async function AdminReportsPage() {
             Báo cáo & thống kê
           </h1>
           <p className="text-muted-foreground max-w-2xl text-sm">
-            Phân bố nhóm máu và lượng máu thu được theo từng chiến dịch, dựa
-            trên các hồ sơ đã hoàn thành hiến máu.
+            Nhóm máu và lượng máu thu được từ các ca hiến thành công.
           </p>
         </div>
         <RefreshButton />

@@ -197,20 +197,18 @@ export default function RegisterForm() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 320, damping: 26 }}
-            className="fixed inset-x-4 top-4 z-50 mx-auto flex max-w-sm items-start gap-3 rounded-xl border border-emerald-500/40 bg-emerald-950/90 p-4 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:right-6 sm:mx-0"
+            className="border-success/40 bg-card shadow-soft fixed inset-x-4 top-4 z-50 mx-auto flex max-w-sm items-start gap-3 rounded-2xl border p-4 backdrop-blur-md sm:inset-x-auto sm:right-6 sm:mx-0"
           >
             <CheckCircle2
-              className="mt-0.5 size-5 shrink-0 text-emerald-400"
+              className="text-success mt-0.5 size-5 shrink-0"
               aria-hidden
             />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-emerald-300">
-                {toast.title}
-              </p>
-              <p className="mt-0.5 text-xs leading-relaxed text-emerald-100/80">
+              <p className="text-sm font-semibold">{toast.title}</p>
+              <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
                 {toast.description}
               </p>
-              <p className="mt-2 text-[11px] text-emerald-200/60">
+              <p className="text-muted-foreground mt-2 text-[11px]">
                 Đang chuyển đến trang đăng nhập…
               </p>
             </div>
@@ -380,8 +378,7 @@ export default function RegisterForm() {
         </Button>
 
         <p className="text-muted-foreground text-center text-xs leading-relaxed">
-          Bằng việc đăng ký, bạn đồng ý cho hệ thống lưu trữ thông tin phục vụ
-          quản lý hiến máu. Dữ liệu cá nhân được mã hóa theo chuẩn AES-256-GCM.
+          Dữ liệu cá nhân được mã hóa AES-256-GCM.
         </p>
 
         <p className="text-muted-foreground border-border/60 border-t pt-4 text-center text-sm">

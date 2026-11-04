@@ -1,33 +1,18 @@
 "use client";
 
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type LoginResult = {
   success: boolean;
   message?: string;
   errors?: Record<string, string>;
   redirectTo?: string;
-};
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "12px 14px",
-  borderRadius: 10,
-  border: "1px solid #334155",
-  backgroundColor: "#0b1220",
-  color: "#e2e8f0",
-  fontSize: 15,
-  outline: "none",
-};
-
-const labelStyle: CSSProperties = {
-  display: "block",
-  marginBottom: 6,
-  fontSize: 13,
-  fontWeight: 600,
-  color: "#cbd5e1",
 };
 
 export default function LoginForm({ nextPath }: { nextPath?: string }) {
@@ -66,127 +51,100 @@ export default function LoginForm({ nextPath }: { nextPath?: string }) {
 
       window.location.assign(nextPath ?? data.redirectTo ?? "/");
     } catch {
-      setError("Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.");
+      setError("Không kết nối được máy chủ. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
       {error ? (
-        <div
-          role="alert"
-          style={{
-            marginBottom: 16,
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid #7f1d1d",
-            backgroundColor: "#450a0a",
-            color: "#fecaca",
-            fontSize: 14,
-          }}
-        >
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Đăng nhập không thành công</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
-      <label htmlFor="email" style={labelStyle}>
-        Email
-      </label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autoComplete="email"
-        required
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        placeholder="ten.sv@due.edu.vn"
-        style={inputStyle}
-        aria-invalid={Boolean(fieldErrors.email)}
-      />
-      {fieldErrors.email ? (
-        <p style={{ margin: "6px 0 0", color: "#fca5a5", fontSize: 13 }}>
-          {fieldErrors.email}
-        </p>
-      ) : null}
-
-      <div style={{ height: 16 }} />
-
-      <label htmlFor="password" style={labelStyle}>
-        Mật khẩu
-      </label>
-      <div style={{ position: "relative" }}>
-        <input
-          id="password"
-          name="password"
-          type={showPassword ? "text" : "password"}
-          autoComplete="current-password"
+      <div className="space-y-2">
+        <Label htmlFor="email">
+          Email <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
           required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="••••••••"
-          style={{ ...inputStyle, paddingRight: 84 }}
-          aria-invalid={Boolean(fieldErrors.password)}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="ten.sv@due.edu.vn"
+          aria-invalid={Boolean(fieldErrors.email)}
         />
-        <button
-          type="button"
-          onClick={() => setShowPassword((value) => !value)}
-          style={{
-            position: "absolute",
-            top: "50%",
-            right: 8,
-            transform: "translateY(-50%)",
-            border: "none",
-            background: "transparent",
-            color: "#94a3b8",
-            fontSize: 13,
-            cursor: "pointer",
-            padding: "6px 8px",
-          }}
-        >
-          {showPassword ? "Ẩn" : "Hiện"}
-        </button>
+        {fieldErrors.email ? (
+          <p role="alert" className="text-destructive text-xs">
+            {fieldErrors.email}
+          </p>
+        ) : null}
       </div>
-      {fieldErrors.password ? (
-        <p style={{ margin: "6px 0 0", color: "#fca5a5", fontSize: 13 }}>
-          {fieldErrors.password}
-        </p>
-      ) : null}
 
-      <div style={{ height: 22 }} />
+      <div className="space-y-2">
+        <Label htmlFor="password">
+          Mật khẩu <span className="text-destructive">*</span>
+        </Label>
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="••••••••"
+            className="pr-11"
+            aria-invalid={Boolean(fieldErrors.password)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((value) => !value)}
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2 rounded-lg p-2 transition-colors"
+            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+          >
+            {showPassword ? (
+              <EyeOff className="size-4" aria-hidden />
+            ) : (
+              <Eye className="size-4" aria-hidden />
+            )}
+          </button>
+        </div>
+        {fieldErrors.password ? (
+          <p role="alert" className="text-destructive text-xs">
+            {fieldErrors.password}
+          </p>
+        ) : null}
+      </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        style={{
-          width: "100%",
-          padding: "12px 16px",
-          borderRadius: 10,
-          border: "none",
-          background: loading
-            ? "#7f1d1d"
-            : "linear-gradient(135deg, #dc2626, #b91c1c)",
-          color: "#fff",
-          fontSize: 15,
-          fontWeight: 700,
-          cursor: loading ? "not-allowed" : "pointer",
-          boxShadow: "0 10px 25px rgba(220, 38, 38, 0.25)",
-        }}
-      >
-        {loading ? "Đang đăng nhập..." : "Đăng nhập"}
-      </button>
+      <Button type="submit" size="lg" disabled={loading} className="w-full">
+        {loading ? (
+          <>
+            <Loader2 className="animate-spin" aria-hidden />
+            Đang đăng nhập...
+          </>
+        ) : (
+          <>
+            Đăng nhập
+            <ArrowRight aria-hidden />
+          </>
+        )}
+      </Button>
 
-      <p style={{ margin: "14px 0 0", color: "#64748b", fontSize: 12, textAlign: "center" }}>
-        Tài khoản demo được tạo bởi <code>prisma/seed.ts</code>.
-      </p>
-
-      <p style={{ margin: "10px 0 0", color: "#94a3b8", fontSize: 14, textAlign: "center" }}>
+      <p className="text-muted-foreground text-center text-sm">
         Chưa có tài khoản?{" "}
         <Link
           href="/register"
-          style={{ color: "#f87171", fontWeight: 600, textDecoration: "none" }}
+          className="text-primary font-semibold underline-offset-4 hover:underline"
         >
           Đăng ký ngay
         </Link>

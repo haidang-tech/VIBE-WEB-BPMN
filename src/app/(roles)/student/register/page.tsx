@@ -158,20 +158,18 @@ export default async function StudentRegisterPage() {
           Đăng ký hiến máu
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm">
-          Hoàn thành hồ sơ để tham gia chiến dịch hiến máu nhân đạo. Hệ thống sẽ
-          kiểm tra điều kiện tuổi, cân nặng và ghi nhận trạng thái hồ sơ của bạn.
+          Điền hồ sơ, chọn khung giờ và gửi đăng ký chỉ trong vài phút.
         </p>
       </header>
 
       {activeRegistration ? (
         <Alert variant="info">
           <Info />
-          <AlertTitle>Bạn đang có hồ sơ đang hoạt động</AlertTitle>
+          <AlertTitle>Bạn đang có hồ sơ hoạt động</AlertTitle>
           <AlertDescription>
             <p>
-              Hồ sơ tại chiến dịch “{activeRegistration.campaign.name}” vẫn đang
-              được xử lý. Bạn có thể theo dõi tiến độ hoặc đăng ký thêm chiến
-              dịch khác nếu còn suất.
+              Hồ sơ “{activeRegistration.campaign.name}” vẫn đang được xử lý.
+              Theo dõi tiến độ hoặc đăng ký chiến dịch khác nếu còn suất.
             </p>
             <Button asChild variant="outline" size="sm" className="mt-2">
               <Link
@@ -192,10 +190,9 @@ export default async function StudentRegisterPage() {
             <div className="bg-muted mx-auto mb-2 grid size-12 place-items-center rounded-full">
               <CalendarDays className="text-muted-foreground size-6" />
             </div>
-            <CardTitle>Chưa có chiến dịch nào đang mở</CardTitle>
+            <CardTitle>Chưa có chiến dịch đang mở</CardTitle>
             <CardDescription>
-              Ban tổ chức chưa công bố chiến dịch hiến máu mới. Vui lòng quay lại
-              sau.
+              Ban tổ chức chưa công bố chiến dịch mới. Quay lại sau nhé!
             </CardDescription>
           </CardHeader>
         </Card>

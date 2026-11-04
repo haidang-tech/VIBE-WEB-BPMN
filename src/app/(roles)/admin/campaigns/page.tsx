@@ -92,11 +92,8 @@ export default async function AdminCampaignsPage() {
             Quản lý chiến dịch
           </h1>
           <p className="text-muted-foreground max-w-2xl text-sm">
-            Tạo, sửa và xóa chiến dịch hiến máu. Điều chỉnh chỉ tiêu
-            <span className="text-foreground font-medium"> capacity </span>
-            và tỷ lệ
-            <span className="text-foreground font-medium"> overbookRate </span>
-            để kiểm soát số suất tiếp nhận tối đa.
+            Tạo và quản lý chiến dịch. Chỉnh chỉ tiêu và tỷ lệ overbook để kiểm
+            soát số suất tiếp nhận.
           </p>
         </div>
         <RefreshButton />

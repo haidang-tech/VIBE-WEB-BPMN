@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import LogoutButton from "@/components/LogoutButton";
 import StudentDonationBanner from "@/components/StudentDonationBanner";
+import ThemeToggle from "@/components/ThemeToggle";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StudentNav from "./student-nav";
@@ -58,7 +59,7 @@ export default async function StudentLayout({
           >
             <span
               aria-hidden
-              className="from-primary to-primary/60 grid size-8 place-items-center rounded-lg bg-gradient-to-br text-sm shadow-sm"
+              className="from-primary to-primary/70 grid size-9 place-items-center rounded-xl bg-gradient-to-br text-base shadow-sm"
             >
               🩸
             </span>
@@ -76,6 +77,7 @@ export default async function StudentLayout({
                 {user?.email ?? ""}
               </p>
             </div>
+            <ThemeToggle />
             <LogoutButton />
           </div>
         </div>
