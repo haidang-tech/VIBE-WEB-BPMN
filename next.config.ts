@@ -8,7 +8,9 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    // Camera cần cho tính năng quét CCCD check-in (organizer/medical).
+    // Microphone và geolocation vẫn bị tắt toàn cục.
+    value: "camera=(self), microphone=(), geolocation=()",
   },
   ...(isProduction
     ? [
