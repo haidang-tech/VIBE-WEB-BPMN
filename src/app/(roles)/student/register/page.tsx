@@ -45,6 +45,14 @@ export default async function StudentRegisterPage() {
       select: {
         name: true,
         email: true,
+        studentCode: true,
+        className: true,
+        faculty: true,
+        dateOfBirth: true,
+        gender: true,
+        phone: true,
+        bloodType: true,
+        lastDonationDate: true,
         cccdCiphertext: true,
         cccdIv: true,
         cccdAuthTag: true,
@@ -198,6 +206,18 @@ export default async function StudentRegisterPage() {
             fullName: user.name,
             email: user.email,
             cccd: ownCccd,
+            studentCode: user.studentCode ?? "",
+            className: user.className ?? "",
+            faculty: user.faculty ?? "",
+            dateOfBirth: user.dateOfBirth
+              ? user.dateOfBirth.toISOString().slice(0, 10)
+              : "",
+            gender: user.gender ?? "",
+            phone: user.phone ?? "",
+            bloodType: user.bloodType ?? "",
+            lastDonationDate: user.lastDonationDate
+              ? user.lastDonationDate.toISOString().slice(0, 10)
+              : "",
           }}
         />
       )}

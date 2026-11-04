@@ -115,3 +115,8 @@ Copy & Paste từng prompt dưới đây vào Opencode CLI theo đúng thứ t�
 >    - Tự động điền (autofill) hoặc so khớp giá trị số CCCD vừa quét được với danh sách hồ sơ trong cơ sở dữ liệu/trạng thái hiện tại.
 >    - Chuyển đổi trạng thái hồ sơ sang trạng thái check-in hợp lệ.
 > 4. Xử lý các trường hợp ngoại lệ (fallback): Cho phép người dùng chuyển đổi linh hoạt giữa chế độ "Quét bằng Camera" và "Tải ảnh lên" thủ công như thiết kế ban đầu nếu điều kiện ánh sáng kém.
+
+### Prompt 11: Refactor và nâng cấp màn hình **Form đăng ký hiến máu sinh viên** thành một Form hoàn chỉnh, chuẩn y tế và chuyên nghiệp.
+
+> 1. Các nhóm thông tin cần bổ sung:Thông tin sinh viên: Họ và tên, MSSV, Lớp, Khoa, Ngày sinh, Giới tính, Số điện thoại, Email sinh viên (@due.edu.vn), Số CCCD/CMND.Chỉ số thể trạng: Cân nặng (kg), Chiều cao (cm), Nhóm máu (nếu biết), Ngày hiến máu gần nhất (nếu có).Khảo sát tiền sử sức khỏe (Checklist Yes/No):Có đang dùng thuốc kháng sinh / điều trị bệnh trong 7 ngày qua không?Có xăm hình, xỏ khuyên, hoặc phẫu thuật trong 6 tháng gần đây không?Có tiền sử mắc bệnh truyền nhiễm, dị ứng nặng, hoặc ngất khi lấy máu không?Đăng ký lịch trình: Chọn ca hiến máu / khung giờ mong muốn (Slot time).Xác nhận: Checkbox cam kết khai báo thông tin trung thực.
+> 2. Yêu cầu Kỹ thuật & UX/UI:Chia form thành 3 section/bước rõ ràng (Thông tin cá nhân $\rightarrow$ Tiền sử sức khỏe $\rightarrow$ Chọn khung giờ).Thêm Validation chặt chẽ (MSSV, SĐT, CCCD đúng định dạng; cảnh báo nếu cân nặng $< 45\text{ kg}$).Giao diện Tailwind CSS hiện đại, responsive mượt trên Mobile, có Toast thông báo và hiệu ứng Loading khi bấm Submit.

@@ -34,6 +34,71 @@ export const phoneSchema = z
     "Số điện thoại không hợp lệ (ví dụ: 0912345678)",
   );
 
+/** MSSV DUE: 6–12 chữ cái hoặc chữ số, tự bỏ khoảng trắng và chuyển hoa. */
+export const studentCodeSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase().replace(/\s+/g, ""))
+  .refine(
+    (value) => /^[A-Z0-9]{6,12}$/.test(value),
+    "MSSV phải gồm 6–12 chữ cái hoặc chữ số",
+  );
+
+/** Email sinh viên: dùng chung validate email + bắt buộc đuôi @due.edu.vn. */
+export const studentEmailSchema = emailSchema.refine(
+  (value) => value.endsWith("@due.edu.vn"),
+  "Email sinh viên phải có đuôi @due.edu.vn",
+);
+
+/** Ngày trong quá khứ dạng YYYY-MM-DD (dùng cho ngày hiến máu gần nhất). */
+export const pastDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải có dạng YYYY-MM-DD")
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date.toISOString().slice(0, 10) === value
+    );
+  }, "Ngày không hợp lệ")
+  .refine(
+    (value) => new Date(`${value}T00:00:00Z`).getTime() <= Date.now(),
+    "Ngày không được ở tương lai",
+  );
+
+/** Cho phép bỏ trống; chuỗi rỗng được chuẩn hóa thành undefined. */
+export const optionalPastDateSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  pastDateSchema.optional(),
+);
+
+/** Khung giờ hiến máu cố định trong ngày diễn ra chiến dịch. */
+export const DONATION_SLOTS = [
+  "07:30 - 08:30",
+  "08:30 - 09:30",
+  "09:30 - 10:30",
+  "10:30 - 11:30",
+  "13:30 - 14:30",
+  "14:30 - 15:30",
+  "15:30 - 16:30",
+] as const;
+
+export type DonationSlot = (typeof DONATION_SLOTS)[number];
+
+export const donationSlotSchema = z.enum(DONATION_SLOTS, {
+  error: "Vui lòng chọn khung giờ hiến máu",
+});
+
+export const genderSchema = z.enum(["MALE", "FEMALE", "OTHER"], {
+  error: "Vui lòng chọn giới tính",
+});
+
+export const yesNoSchema = z.enum(["YES", "NO"], {
+  error: "Vui lòng chọn Có hoặc Không",
+});
+
 /** Ngày sinh dạng YYYY-MM-DD, không được ở tương lai. */
 export const dateOfBirthSchema = z
   .string()
@@ -123,20 +188,47 @@ export const donationRegistrationSchema = z.object({
     .trim()
     .min(2, "Họ tên tối thiểu 2 ký tự")
     .max(100, "Họ tên tối đa 100 ký tự"),
-  email: emailSchema,
-  phone: phoneSchema.optional(),
+  studentCode: studentCodeSchema,
+  className: z
+    .string()
+    .trim()
+    .min(2, "Lớp tối thiểu 2 ký tự")
+    .max(50, "Lớp tối đa 50 ký tự"),
+  faculty: z
+    .string()
+    .trim()
+    .min(2, "Khoa tối thiểu 2 ký tự")
+    .max(100, "Khoa tối đa 100 ký tự"),
+  email: studentEmailSchema,
+  phone: phoneSchema,
   cccd: cccdSchema,
   dateOfBirth: dateOfBirthSchema,
+  gender: genderSchema,
   weightKg: z.coerce
     .number({ error: "Cân nặng phải là số" })
     .min(30, "Cân nặng tối thiểu 30kg")
     .max(250, "Cân nặng tối đa 250kg"),
   heightCm: z.coerce
-    .number()
+    .number({ error: "Chiều cao phải là số" })
+    .int("Chiều cao phải là số nguyên")
     .min(100, "Chiều cao tối thiểu 100cm")
-    .max(250, "Chiều cao tối đa 250cm")
-    .optional(),
+    .max(250, "Chiều cao tối đa 250cm"),
+  bloodType: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.enum(["A", "B", "AB", "O"], { error: "Nhóm máu không hợp lệ" }).optional(),
+  ),
+  lastDonationDate: optionalPastDateSchema,
+  usedAntibiotics: yesNoSchema,
+  recentTattooOrSurgery: yesNoSchema,
+  infectiousDiseaseHistory: yesNoSchema,
   campaignId: z.string().trim().min(1, "Thiếu chiến dịch").max(64),
+  slotTime: donationSlotSchema,
+  commitment: z
+    .boolean()
+    .refine((value) => value === true, {
+      message: "Bạn cần cam kết khai báo thông tin trung thực",
+    }),
   note: z.string().trim().max(500, "Ghi chú tối đa 500 ký tự").optional(),
 });
 

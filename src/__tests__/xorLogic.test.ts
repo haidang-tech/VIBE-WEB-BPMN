@@ -111,12 +111,25 @@ function mockCampaign(): void {
 function validRegistrationInput(overrides: Record<string, unknown> = {}) {
   return {
     fullName: "Nguyễn Văn An",
-    email: "an.nguyen@example.com",
+    studentCode: "2212345678",
+    className: "46K21.1",
+    faculty: "Khoa Kinh tế",
+    email: "an.nguyen@due.edu.vn",
     phone: "0912345678",
     cccd: "012345678901",
     dateOfBirth: "2000-01-01", // 26 tuổi tại thời điểm test 2026-06-15
+    gender: "MALE",
     weightKg: 50,
+    heightCm: 170,
+    bloodType: "A",
+    lastDonationDate: "",
+    usedAntibiotics: "NO",
+    recentTattooOrSurgery: "NO",
+    infectiousDiseaseHistory: "NO",
     campaignId: CAMPAIGN_ID,
+    slotTime: "07:30 - 08:30",
+    commitment: true,
+    note: "",
     ...overrides,
   };
 }

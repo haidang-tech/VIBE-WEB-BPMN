@@ -53,6 +53,12 @@ enum BloodType {
   O
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 // ---------------------------------------------------------------------------
 // MODELS
 // ---------------------------------------------------------------------------
@@ -71,6 +77,19 @@ model User {
   cccdAuthTag    String?
   /// Blind index HMAC-SHA256(normalized CCCD) để matching khi OCR
   cccdHash String? @unique
+
+  // --- Hồ sơ sinh viên (Prompt 11) -------------------------------
+  /// Mã số sinh viên, ví dụ 2212345678
+  studentCode      String?     @unique
+  className        String?
+  faculty          String?
+  dateOfBirth      DateTime?
+  gender           Gender?
+  phone            String?
+  /// Nhóm máu sinh viên tự khai (nếu biết)
+  bloodType        BloodType?
+  /// Ngày hiến máu gần nhất (nếu có)
+  lastDonationDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,6 +127,23 @@ model Registration {
   campaignId String
   status     RegStatus @default(PENDING)
   checkInTime DateTime?
+
+  // --- Khai báo khi đăng ký (Prompt 11) --------------------------
+  /// Cân nặng tại thời điểm đăng ký (kg)
+  weightKg                 Decimal? @db.Decimal(5, 2)
+  /// Chiều cao tại thời điểm đăng ký (cm)
+  heightCm                 Int?
+  /// Khung giờ hiến máu mong muốn, ví dụ "08:30 - 09:30"
+  slotTime                 String?
+  /// Có dùng thuốc kháng sinh / điều trị bệnh trong 7 ngày qua?
+  usedAntibiotics          Boolean?
+  /// Có xăm hình, xỏ khuyên hoặc phẫu thuật trong 6 tháng qua?
+  recentTattooOrSurgery    Boolean?
+  /// Có tiền sử bệnh truyền nhiễm, dị ứng nặng hoặc ngất khi lấy máu?
+  infectiousDiseaseHistory Boolean?
+  /// Sinh viên đã tick cam kết khai báo trung thực
+  healthDeclarationConfirmed Boolean @default(false)
+  note                     String?  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

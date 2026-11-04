@@ -286,7 +286,27 @@ export async function validateProfile(
       };
     }
 
-    const { fullName, cccd, dateOfBirth, weightKg, campaignId } = parsed.data;
+    const {
+      fullName,
+      studentCode,
+      className,
+      faculty,
+      phone,
+      cccd,
+      dateOfBirth,
+      gender,
+      weightKg,
+      heightCm,
+      bloodType,
+      lastDonationDate,
+      usedAntibiotics,
+      recentTattooOrSurgery,
+      infectiousDiseaseHistory,
+      campaignId,
+      slotTime,
+      commitment,
+      note,
+    } = parsed.data;
     const age = calculateAge(dateOfBirth);
     const profile = evaluateProfileRules(age, weightKg);
     const encryptedCccd = encryptCccd(cccd);
@@ -331,6 +351,21 @@ export async function validateProfile(
         success: false,
         code: "CCCD_IN_USE",
         message: "Số CCCD này đã được sử dụng cho một tài khoản khác.",
+      };
+    }
+
+    // MSSV phải là duy nhất trên toàn hệ thống.
+    const studentCodeOwner = await prisma.user.findFirst({
+      where: { studentCode, NOT: { id: session.userId } },
+      select: { id: true },
+    });
+
+    if (studentCodeOwner) {
+      return {
+        success: false,
+        code: "STUDENT_CODE_IN_USE",
+        message: "MSSV này đã được sử dụng cho một tài khoản khác.",
+        errors: { studentCode: "MSSV này đã được sử dụng" },
       };
     }
 
@@ -383,16 +418,34 @@ export async function validateProfile(
             userId: session.userId,
             campaignId,
             status,
+            weightKg,
+            heightCm,
+            slotTime,
+            usedAntibiotics: usedAntibiotics === "YES",
+            recentTattooOrSurgery: recentTattooOrSurgery === "YES",
+            infectiousDiseaseHistory: infectiousDiseaseHistory === "YES",
+            healthDeclarationConfirmed: commitment,
+            note: note && note.trim() !== "" ? note : null,
           },
           select: { id: true },
         });
 
-        // Lưu họ tên + CCCD đã mã hóa vào hồ sơ người dùng.
-        // Email/số điện thoại không ghi đè để tránh đổi danh tính tài khoản.
+        // Lưu hồ sơ sinh viên + CCCD đã mã hóa.
+        // Email không ghi đè để tránh đổi danh tính tài khoản.
         await tx.user.update({
           where: { id: session.userId },
           data: {
             name: fullName,
+            studentCode,
+            className,
+            faculty,
+            dateOfBirth: new Date(`${dateOfBirth}T00:00:00Z`),
+            gender,
+            phone,
+            bloodType: bloodType ?? null,
+            lastDonationDate: lastDonationDate
+              ? new Date(`${lastDonationDate}T00:00:00Z`)
+              : null,
             cccdCiphertext: encryptedCccd.ciphertext,
             cccdIv: encryptedCccd.iv,
             cccdAuthTag: encryptedCccd.authTag,
@@ -445,6 +498,7 @@ export async function validateProfile(
         status: outcome.status,
         age,
         weightKg,
+        slotTime,
         reasons: profile.reasons,
       },
     });
