@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import RefreshButton from "@/components/RefreshButton";
 import TrackingStepper from "@/components/TrackingStepper";
+import DonationTimeNotice from "@/components/DonationTimeNotice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,6 +153,17 @@ export default async function StudentTrackingPage({
         ) : null}
       </header>
 
+      {selected ? (
+        <DonationTimeNotice
+          status={selected.status}
+          campaignName={selected.campaign.name}
+          campaignDate={selected.campaign.date}
+          location={selected.campaign.location}
+          checkInTime={selected.checkInTime}
+          completedAt={selected.healthCheck?.updatedAt ?? null}
+        />
+      ) : null}
+
       {registrations.length === 0 || !selected ? (
         <Card className="mx-auto max-w-xl text-center">
           <CardHeader>
@@ -273,6 +285,9 @@ export default async function StudentTrackingPage({
                   </DetailRow>
                   <DetailRow label="Ngày đăng ký">
                     {dateTimeFormatter.format(selected.createdAt)}
+                  </DetailRow>
+                  <DetailRow label="Thời gian hiến máu">
+                    {dateTimeFormatter.format(selected.campaign.date)}
                   </DetailRow>
                   <DetailRow label="Cập nhật gần nhất">
                     {dateTimeFormatter.format(selected.updatedAt)}

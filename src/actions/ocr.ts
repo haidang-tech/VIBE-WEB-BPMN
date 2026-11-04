@@ -113,11 +113,12 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
       };
     }
 
-    if (session.role !== "ORGANIZER") {
+    if (session.role !== "ORGANIZER" && session.role !== "MEDICAL") {
       return {
         success: false,
         code: "FORBIDDEN",
-        message: "Chỉ Ban tổ chức mới có quyền check-in bằng CCCD.",
+        message:
+          "Chỉ Ban tổ chức hoặc nhân viên y tế mới có quyền check-in bằng CCCD.",
       };
     }
 
@@ -304,6 +305,7 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
         registrationId: outcome.registrationId,
         campaignId: outcome.campaignId,
         method: "MOCK_OCR",
+        role: session.role,
         cccdLast4: cccd.slice(-4),
       },
     });

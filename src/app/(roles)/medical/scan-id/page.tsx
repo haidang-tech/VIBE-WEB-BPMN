@@ -1,9 +1,274 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import Link from "next/link";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Info,
+  MapPin,
+  ScanLine,
+  Stethoscope,
+} from "lucide-react";
+import CccdUploader from "@/components/CccdUploader";
+import RefreshButton from "@/components/RefreshButton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { requireRole } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-/**
- * Blueprint có route /medical/scan-id. Prompt 6 gộp việc chọn hồ sơ vào hàng
- * chờ tại /medical/health-check nên route này chuyển hướng để tránh 404.
- */
-export default function MedicalScanIdPage() {
-  redirect("/medical/health-check");
+export const metadata: Metadata = {
+  title: "Quét CCCD check-in",
+};
+
+export const dynamic = "force-dynamic";
+
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
+  weekday: "long",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Asia/Ho_Chi_Minh",
+});
+
+const timeFormatter = new Intl.DateTimeFormat("vi-VN", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Asia/Ho_Chi_Minh",
+});
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function getTodayRange(): { start: Date; end: Date } {
+  const now = new Date();
+  const vnNow = new Date(now.getTime() + VN_OFFSET_MS);
+  const startUtc =
+    Date.UTC(
+      vnNow.getUTCFullYear(),
+      vnNow.getUTCMonth(),
+      vnNow.getUTCDate(),
+    ) - VN_OFFSET_MS;
+
+  return {
+    start: new Date(startUtc),
+    end: new Date(startUtc + 24 * 60 * 60 * 1000),
+  };
+}
+
+export default async function MedicalScanIdPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  await requireRole("MEDICAL");
+
+  const params = await searchParams;
+  const requestedCampaignId = firstParam(params.campaignId);
+  const { start: todayStart, end: todayEnd } = getTodayRange();
+
+  const activeCampaigns = await prisma.campaign.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { date: "asc" },
+    select: {
+      id: true,
+      name: true,
+      date: true,
+      location: true,
+    },
+  });
+
+  const todayCampaign =
+    activeCampaigns.find(
+      (campaign) => campaign.date >= todayStart && campaign.date < todayEnd,
+    ) ?? null;
+
+  const selectedCampaign =
+    activeCampaigns.find((campaign) => campaign.id === requestedCampaignId) ??
+    todayCampaign ??
+    activeCampaigns[0] ??
+    null;
+
+  const header = (
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div className="space-y-1.5">
+        <p className="text-primary text-sm font-medium">Khu vực y tế</p>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Quét CCCD check-in
+        </h1>
+        <p className="text-muted-foreground max-w-2xl text-sm">
+          Dùng camera hoặc ảnh CCCD để xác nhận sinh viên đã đến chiến dịch.
+          Nhân viên y tế có thể check-in trước khi nhập chỉ số khám.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <RefreshButton />
+        <Button asChild variant="outline">
+          <Link href="/medical/health-check">
+            <Stethoscope aria-hidden />
+            Khám sức khỏe
+          </Link>
+        </Button>
+      </div>
+    </header>
+  );
+
+  if (!selectedCampaign) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <Card className="mx-auto max-w-xl text-center">
+          <CardHeader>
+            <div className="bg-muted mx-auto mb-2 grid size-12 place-items-center rounded-full">
+              <CalendarDays className="text-muted-foreground size-6" />
+            </div>
+            <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
+            <CardDescription>
+              Cần kích hoạt chiến dịch trước khi quét CCCD check-in.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  const isToday =
+    selectedCampaign.date >= todayStart && selectedCampaign.date < todayEnd;
+
+  const [checkedInCount, recentCheckIns] = await Promise.all([
+    prisma.registration.count({
+      where: {
+        campaignId: selectedCampaign.id,
+        status: { in: ["CHECKED_IN", "ELIGIBLE", "COMPLETED"] },
+      },
+    }),
+    prisma.registration.findMany({
+      where: {
+        campaignId: selectedCampaign.id,
+        checkInTime: { not: null },
+      },
+      orderBy: { checkInTime: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        status: true,
+        checkInTime: true,
+        user: { select: { name: true, email: true } },
+      },
+    }),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      {header}
+
+      {!isToday ? (
+        <Alert variant="info">
+          <Info />
+          <AlertTitle>Hôm nay chưa có chiến dịch check-in</AlertTitle>
+          <AlertDescription>
+            Đang hiển thị chiến dịch gần nhất:{" "}
+            <span className="font-medium">{selectedCampaign.name}</span> —{" "}
+            {dateFormatter.format(selectedCampaign.date)}.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <CccdUploader
+          key={selectedCampaign.id}
+          campaignId={selectedCampaign.id}
+          campaignName={selectedCampaign.name}
+        />
+
+        <aside className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ScanLine className="text-primary size-4" aria-hidden />
+                Chiến dịch đang chọn
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="font-medium">{selectedCampaign.name}</p>
+              <p className="text-muted-foreground flex items-start gap-2">
+                <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>
+                  {dateFormatter.format(selectedCampaign.date)} ·{" "}
+                  {timeFormatter.format(selectedCampaign.date)}
+                </span>
+              </p>
+              <p className="text-muted-foreground flex items-start gap-2">
+                <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>{selectedCampaign.location}</span>
+              </p>
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+                <span className="text-muted-foreground text-xs">
+                  Đã check-in
+                </span>
+                <span className="text-lg font-semibold tabular-nums">
+                  {checkedInCount}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CheckCircle2 className="text-success size-4" aria-hidden />
+                Check-in gần đây
+              </CardTitle>
+              <CardDescription>
+                Cập nhật sau mỗi lần quét CCCD thành công.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {recentCheckIns.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Chưa có sinh viên nào check-in trong chiến dịch này.
+                </p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {recentCheckIns.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-start justify-between gap-3 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {item.user.name}
+                        </p>
+                        <p className="text-muted-foreground truncate text-xs">
+                          {item.user.email}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <Badge variant="success">Đã đến</Badge>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {item.checkInTime
+                            ? timeFormatter.format(item.checkInTime)
+                            : "—"}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+    </div>
+  );
 }

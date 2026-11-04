@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import LogoutButton from "@/components/LogoutButton";
+import StudentDonationBanner from "@/components/StudentDonationBanner";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StudentNav from "./student-nav";
@@ -14,10 +15,38 @@ export default async function StudentLayout({
 }) {
   const session = await requireRole("STUDENT");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { name: true, email: true },
-  });
+  const [user, nextRegistration] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { name: true, email: true },
+    }),
+    prisma.registration.findFirst({
+      where: {
+        userId: session.userId,
+        status: { in: ["PENDING", "APPROVED", "CHECKED_IN", "ELIGIBLE"] },
+        // Chỉ thông báo cho chiến dịch hôm nay hoặc sắp tới.
+        campaign: { date: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      },
+      orderBy: { campaign: { date: "asc" } },
+      select: {
+        id: true,
+        status: true,
+        campaign: {
+          select: { name: true, date: true, location: true },
+        },
+      },
+    }),
+  ]);
+
+  const bannerData = nextRegistration
+    ? {
+        registrationId: nextRegistration.id,
+        status: nextRegistration.status,
+        campaignDate: nextRegistration.campaign.date.toISOString(),
+        campaignName: nextRegistration.campaign.name,
+        location: nextRegistration.campaign.location,
+      }
+    : null;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -51,6 +80,8 @@ export default async function StudentLayout({
           </div>
         </div>
       </header>
+
+      <StudentDonationBanner data={bannerData} />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         {children}

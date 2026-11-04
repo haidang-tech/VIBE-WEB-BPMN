@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Stethoscope } from "lucide-react";
+import { ScanLine, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
+  {
+    href: "/medical/scan-id",
+    label: "Quét CCCD",
+    icon: ScanLine,
+  },
   {
     href: "/medical/health-check",
     label: "Khám & chốt kết quả",
