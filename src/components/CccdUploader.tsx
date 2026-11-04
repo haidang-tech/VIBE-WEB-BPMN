@@ -15,7 +15,12 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { processCccdOcr, type OcrResult } from "@/actions/ocr";
+import {
+  lookupCccdForMedical,
+  processCccdOcr,
+  type MedicalLookupResult,
+  type OcrResult,
+} from "@/actions/ocr";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +46,14 @@ const MAX_CAPTURE_WIDTH = 1920;
 type Props = {
   campaignId: string;
   campaignName: string;
+  /**
+   * "checkin": quét CCCD để check-in (Ban tổ chức).
+   * "medical": quét CCCD để mở hồ sơ nhập chỉ số khám (không check-in).
+   */
+  intent?: "checkin" | "medical";
 };
+
+type UploaderResult = OcrResult | MedicalLookupResult;
 
 type InputMode = "upload" | "camera";
 
@@ -89,7 +101,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
   timeZone: "Asia/Ho_Chi_Minh",
 });
 
-export default function CccdUploader({ campaignId, campaignName }: Props) {
+export default function CccdUploader({
+  campaignId,
+  campaignName,
+  intent = "checkin",
+}: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -102,7 +118,7 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [result, setResult] = useState<OcrResult | null>(null);
+  const [result, setResult] = useState<UploaderResult | null>(null);
 
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
@@ -117,6 +133,8 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
   const autoScanInFlightRef = useRef(false);
   const autoScanMissesRef = useRef(0);
   const [manualCccd, setManualCccd] = useState("");
+
+  const isMedical = intent === "medical";
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -370,10 +388,12 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       formData.append("cccdCandidates", JSON.stringify(candidates));
       formData.append("source", "CAMERA_AUTO");
 
-      let response: OcrResult;
+      let response: UploaderResult;
 
       try {
-        response = await processCccdOcr(formData);
+        response = isMedical
+          ? await lookupCccdForMedical(formData)
+          : await processCccdOcr(formData);
       } catch {
         // Lỗi mạng: xoá autofill để vòng quét tiếp tục thử lại.
         setManualCccd("");
@@ -382,9 +402,23 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
 
       if (response.success) {
         autoScanMissesRef.current = 0;
+        setManualCccd("");
+
+        if (isMedical && response.data) {
+          setResult(response);
+          setScanPaused(true);
+          router.push(
+            `/medical/health-check?campaignId=${encodeURIComponent(
+              campaignId,
+            )}&registrationId=${encodeURIComponent(
+              response.data.registrationId,
+            )}`,
+          );
+          return;
+        }
+
         setResult(response);
         setScanPaused(true);
-        setManualCccd("");
         router.refresh();
         return;
       }
@@ -427,7 +461,7 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       autoScanInFlightRef.current = false;
       setAutoScanning(false);
     }
-  }, [campaignId, cameraReady, captureFrame, loading, router]);
+  }, [campaignId, cameraReady, captureFrame, isMedical, loading, router]);
 
   // Quét tự động mỗi ~2,6 giây khi camera đang bật và chưa có kết quả.
   useEffect(() => {
@@ -500,7 +534,9 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
         formData.append("cccdCandidates", JSON.stringify(candidates));
       }
 
-      const response = await processCccdOcr(formData);
+      const response = isMedical
+        ? await lookupCccdForMedical(formData)
+        : await processCccdOcr(formData);
       setResult(response);
 
       if (response.success) {
@@ -508,6 +544,18 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
         setPreviewUrl(null);
         setManualCccd("");
         stopCamera();
+
+        if (isMedical && response.data) {
+          router.push(
+            `/medical/health-check?campaignId=${encodeURIComponent(
+              campaignId,
+            )}&registrationId=${encodeURIComponent(
+              response.data.registrationId,
+            )}`,
+          );
+          return;
+        }
+
         router.refresh();
       }
     } catch {
@@ -530,13 +578,16 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
 
   const isCameraMode = mode === "camera";
   const showSuccessStatus = Boolean(result?.success) && scanPaused;
+  const successLabel = isMedical
+    ? "Đã tìm thấy hồ sơ khám"
+    : "Check-in thành công";
   const cameraStatusLabel = !cameraReady
     ? "Đang khởi động camera..."
     : autoScanning
       ? "Đang nhận diện số CCCD..."
       : scanPaused
         ? result?.success
-          ? "Check-in thành công"
+          ? successLabel
           : result
             ? "Cần xử lý kết quả"
             : "Đã tạm dừng quét"
@@ -549,12 +600,14 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <ScanLine className="text-primary size-4" aria-hidden />
-          Quét CCCD để check-in
+          {isMedical
+            ? "Quét CCCD để nhập chỉ số khám"
+            : "Quét CCCD để check-in"}
         </CardTitle>
         <CardDescription>
-          Đưa mặt trước CCCD vào khung hình để hệ thống tự nhận diện 12 số CCCD
-          in trên thẻ, hoặc chụp ảnh/tải ảnh thủ công. Hệ thống đối chiếu với hồ
-          sơ và chuyển sang trạng thái đã check-in.
+          {isMedical
+            ? "Đưa mặt trước CCCD vào khung hình để hệ thống nhận diện 12 số CCCD, mở đúng hồ sơ sinh viên và chuyển sang form nhập chỉ số khám. Thao tác này không check-in."
+            : "Đưa mặt trước CCCD vào khung hình để hệ thống tự nhận diện 12 số CCCD in trên thẻ, hoặc chụp ảnh/tải ảnh thủ công. Hệ thống đối chiếu với hồ sơ và chuyển sang trạng thái đã check-in."}
         </CardDescription>
       </CardHeader>
 
@@ -563,8 +616,9 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
             Hệ thống dùng OCR để đọc vùng số CCCD in trên mặt trước thẻ, sau đó
-            đối chiếu với hồ sơ đã duyệt. Nếu ảnh mờ, lóa hoặc không nhận diện
-            được, bạn có thể nhập tay 12 số in trên thẻ.
+            đối chiếu với hồ sơ {isMedical ? "trong chiến dịch đang chọn" : "đã duyệt"}.
+            Nếu ảnh mờ, lóa hoặc không nhận diện được, bạn có thể nhập tay 12 số
+            in trên thẻ.
           </span>
         </p>
 
@@ -891,7 +945,7 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
           ) : (
             <>
               <ScanLine aria-hidden />
-              Check-in bằng CCCD
+              {isMedical ? "Mở hồ sơ khám" : "Check-in bằng CCCD"}
             </>
           )}
         </Button>
@@ -905,10 +959,14 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
             {result.success ? <CheckCircle2 /> : <AlertCircle />}
             <AlertTitle>
               {result.success
-                ? "Check-in thành công"
+                ? isMedical
+                  ? "Đã mở hồ sơ khám"
+                  : "Check-in thành công"
                 : result.code === "ALREADY_CHECKED_IN"
                   ? "Hồ sơ đã check-in"
-                  : "Không thể check-in"}
+                  : isMedical
+                    ? "Không thể mở hồ sơ khám"
+                    : "Không thể check-in"}
             </AlertTitle>
             <AlertDescription>
               <p>{result.message}</p>
@@ -931,14 +989,23 @@ export default function CccdUploader({ campaignId, campaignName }: Props) {
                     <dt className="text-muted-foreground">Chiến dịch:</dt>
                     <dd>{result.data.campaignName}</dd>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <dt className="text-muted-foreground">Thời gian:</dt>
-                    <dd>
-                      {dateTimeFormatter.format(
-                        new Date(result.data.checkInTime),
-                      )}
-                    </dd>
-                  </div>
+                  {isMedical ? (
+                    <div className="flex flex-wrap gap-1">
+                      <dt className="text-muted-foreground">Trạng thái:</dt>
+                      <dd>{result.data.status}</dd>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      <dt className="text-muted-foreground">Thời gian:</dt>
+                      <dd>
+                        {result.data.checkInTime
+                          ? dateTimeFormatter.format(
+                              new Date(result.data.checkInTime),
+                            )
+                          : "—"}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               ) : null}
 

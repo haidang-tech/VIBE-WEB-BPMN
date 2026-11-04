@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   CalendarDays,
-  CheckCircle2,
+  ClipboardCheck,
   Info,
   MapPin,
   ScanLine,
@@ -24,7 +24,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
-  title: "Quét CCCD check-in",
+  title: "Quét CCCD khám sức khỏe",
 };
 
 export const dynamic = "force-dynamic";
@@ -104,11 +104,12 @@ export default async function MedicalScanIdPage({
       <div className="space-y-1.5">
         <p className="text-primary text-sm font-medium">Khu vực y tế</p>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Quét CCCD check-in
+          Quét CCCD khám sức khỏe
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm">
-          Dùng camera hoặc ảnh CCCD để xác nhận sinh viên đã đến chiến dịch.
-          Nhân viên y tế có thể check-in trước khi nhập chỉ số khám.
+          Quét CCCD để mở đúng hồ sơ sinh viên và nhập chỉ số khám. Thao tác
+          này không check-in — trạng thái hồ sơ chỉ thay đổi sau khi lưu kết quả
+          khám.
         </p>
       </div>
       <div className="flex gap-2">
@@ -134,7 +135,7 @@ export default async function MedicalScanIdPage({
             </div>
             <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
             <CardDescription>
-              Cần kích hoạt chiến dịch trước khi quét CCCD check-in.
+              Cần kích hoạt chiến dịch trước khi quét CCCD khám sức khỏe.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -145,25 +146,26 @@ export default async function MedicalScanIdPage({
   const isToday =
     selectedCampaign.date >= todayStart && selectedCampaign.date < todayEnd;
 
-  const [checkedInCount, recentCheckIns] = await Promise.all([
+  const [waitingCount, recentHealthChecks] = await Promise.all([
     prisma.registration.count({
       where: {
         campaignId: selectedCampaign.id,
-        status: { in: ["CHECKED_IN", "ELIGIBLE", "COMPLETED"] },
+        status: { in: ["APPROVED", "CHECKED_IN"] },
       },
     }),
-    prisma.registration.findMany({
-      where: {
-        campaignId: selectedCampaign.id,
-        checkInTime: { not: null },
-      },
-      orderBy: { checkInTime: "desc" },
+    prisma.healthCheck.findMany({
+      where: { registration: { campaignId: selectedCampaign.id } },
+      orderBy: { updatedAt: "desc" },
       take: 8,
       select: {
         id: true,
-        status: true,
-        checkInTime: true,
-        user: { select: { name: true, email: true } },
+        isPassed: true,
+        updatedAt: true,
+        registration: {
+          select: {
+            user: { select: { name: true, email: true } },
+          },
+        },
       },
     }),
   ]);
@@ -175,7 +177,7 @@ export default async function MedicalScanIdPage({
       {!isToday ? (
         <Alert variant="info">
           <Info />
-          <AlertTitle>Hôm nay chưa có chiến dịch check-in</AlertTitle>
+          <AlertTitle>Hôm nay chưa có chiến dịch khám</AlertTitle>
           <AlertDescription>
             Đang hiển thị chiến dịch gần nhất:{" "}
             <span className="font-medium">{selectedCampaign.name}</span> —{" "}
@@ -189,6 +191,7 @@ export default async function MedicalScanIdPage({
           key={selectedCampaign.id}
           campaignId={selectedCampaign.id}
           campaignName={selectedCampaign.name}
+          intent="medical"
         />
 
         <aside className="space-y-4">
@@ -213,11 +216,9 @@ export default async function MedicalScanIdPage({
                 <span>{selectedCampaign.location}</span>
               </p>
               <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
-                <span className="text-muted-foreground text-xs">
-                  Đã check-in
-                </span>
+                <span className="text-muted-foreground text-xs">Chờ khám</span>
                 <span className="text-lg font-semibold tabular-nums">
-                  {checkedInCount}
+                  {waitingCount}
                 </span>
               </div>
             </CardContent>
@@ -226,39 +227,41 @@ export default async function MedicalScanIdPage({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <CheckCircle2 className="text-success size-4" aria-hidden />
-                Check-in gần đây
+                <ClipboardCheck className="text-success size-4" aria-hidden />
+                Khám gần đây
               </CardTitle>
               <CardDescription>
-                Cập nhật sau mỗi lần quét CCCD thành công.
+                Cập nhật sau mỗi lần lưu chỉ số khám.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {recentCheckIns.length === 0 ? (
+              {recentHealthChecks.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
-                  Chưa có sinh viên nào check-in trong chiến dịch này.
+                  Chưa có sinh viên nào được nhập chỉ số trong chiến dịch này.
                 </p>
               ) : (
                 <ul className="space-y-2.5">
-                  {recentCheckIns.map((item) => (
+                  {recentHealthChecks.map((item) => (
                     <li
                       key={item.id}
                       className="flex items-start justify-between gap-3 text-sm"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-medium">
-                          {item.user.name}
+                          {item.registration.user.name}
                         </p>
                         <p className="text-muted-foreground truncate text-xs">
-                          {item.user.email}
+                          {item.registration.user.email}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <Badge variant="success">Đã đến</Badge>
+                        <Badge
+                          variant={item.isPassed ? "success" : "destructive"}
+                        >
+                          {item.isPassed ? "Đạt" : "Chưa đạt"}
+                        </Badge>
                         <p className="text-muted-foreground mt-1 text-xs">
-                          {item.checkInTime
-                            ? timeFormatter.format(item.checkInTime)
-                            : "—"}
+                          {timeFormatter.format(item.updatedAt)}
                         </p>
                       </div>
                     </li>

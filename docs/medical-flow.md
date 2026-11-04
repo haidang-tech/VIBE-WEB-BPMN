@@ -9,21 +9,48 @@ Kết quả **Prompt 6**: màn hình thao tác nhanh cho nhân viên y tế, nh�
 src/
   app/(roles)/medical/
     layout.tsx                 # Khung trang khu vực y tế
-    medical-nav.tsx            # Điều hướng "Khám & chốt kết quả"
+    medical-nav.tsx            # Điều hướng "Quét CCCD" / "Khám & chốt kết quả"
     page.tsx                   # /medical -> /medical/health-check
-    scan-id/page.tsx           # Route blueprint -> redirect /health-check
+    scan-id/page.tsx           # Quét CCCD -> mở đúng hồ sơ khám (không check-in)
     blood-status/page.tsx      # Route blueprint -> redirect /health-check
     health-check/page.tsx      # Server Component: thống kê + hàng chờ + panel
   components/
+    CccdUploader.tsx           # Camera/tải ảnh OCR; intent="medical" để tra cứu
     MedicalQueue.tsx           # Hàng chờ: chọn chiến dịch, tìm kiếm, lọc tab
     MedicalCheckPanel.tsx      # Form chỉ số + 2 nút chốt kết quả
   actions/
+    ocr.ts                     # lookupCccdForMedical (không đổi trạng thái)
     blood-donation.ts          # Thêm finalizeDonation bên cạnh evaluateHealth
   lib/
     registration-status.ts     # Mô tả HEALTH_CHECK_FAILED bao gồm sự cố hiến máu
 ```
 
-## 2. Màn hình `/medical/health-check`
+## 2. Quét CCCD để mở hồ sơ — `/medical/scan-id`
+
+Nhân viên y tế quét CCCD để **mở đúng hồ sơ sinh viên và nhập chỉ số khám**, không
+phải để check-in. Thao tác quét tuyệt đối không đổi trạng thái hồ sơ.
+
+- `CccdUploader` nhận prop `intent="medical"` (mặc định `"checkin"` cho Ban tổ chức).
+- Ở chế độ y tế, client gọi `lookupCccdForMedical(formData)` thay vì
+  `processCccdOcr(formData)`. Action này:
+  1. Yêu cầu phiên `MEDICAL`.
+  2. Dùng chung phần validate ảnh + đọc `cccd` / `cccdCandidates` với luồng check-in.
+  3. Đối chiếu blind index `User.cccdHash` như check-in.
+  4. Chọn hồ sơ ưu tiên `APPROVED` / `CHECKED_IN`, sau đó `ELIGIBLE`, cuối cùng là
+     hồ sơ mới nhất.
+  5. Chỉ chấp nhận `APPROVED`, `CHECKED_IN`, `ELIGIBLE`, `HEALTH_CHECK_FAILED`,
+     `COMPLETED`. `PENDING` và `REJECTED` bị từ chối.
+  6. Ghi audit `MEDICAL_CCCD_LOOKUP` (chỉ `registrationId`, `campaignId`, 4 số cuối
+     CCCD — không ghi plaintext).
+  7. Trả `registrationId` để client chuyển sang
+     `/medical/health-check?campaignId=...&registrationId=...`.
+- Sau khi chuyển trang, panel nhập chỉ số của đúng hồ sơ mở ra; trạng thái vẫn là
+  `APPROVED` và `checkInTime` vẫn `NULL` cho đến khi lưu chỉ số.
+- Camera, tải ảnh và nhập tay 12 số đều dùng chung pipeline OCR; nếu ảnh mờ, nhân
+  viên nhập tay số in trên thẻ.
+- Thông báo thành công/CCCD hiển thị lấy từ đúng bản ghi vừa tra cứu.
+
+## 3. Màn hình `/medical/health-check`
 
 - Chọn chiến dịch `ACTIVE` (mặc định chiến dịch diễn ra hôm nay, nếu không có thì
   chiến dịch gần nhất). Lưu lựa chọn trên URL `?campaignId=`.
@@ -42,7 +69,7 @@ src/
     **Thất bại do sự cố** (đỏ).
   - `COMPLETED` / `HEALTH_CHECK_FAILED`: thông báo kết quả cuối.
 
-## 3. Nhập chỉ số — `evaluateHealth` (XOR 3)
+## 4. Nhập chỉ số — `evaluateHealth` (XOR 3)
 
 Form dùng `healthCheckSchema` + React Hook Form để validate realtime, sau đó gọi
 `evaluateHealth` hiện có:
@@ -58,7 +85,7 @@ Form dùng `healthCheckSchema` + React Hook Form để validate realtime, sau đ
 Sau khi lưu thành công, client gọi `router.refresh()` để panel chuyển ngay sang
 bước chốt kết quả.
 
-## 4. Chốt kết quả — `finalizeDonation` (mới)
+## 5. Chốt kết quả — `finalizeDonation` (mới)
 
 ```ts
 finalizeDonation({ registrationId, outcome: "SUCCESS" | "INCIDENT" })
@@ -100,24 +127,31 @@ Kết quả trả về:
 Mã lỗi chính: `UNAUTHENTICATED`, `FORBIDDEN`, `INVALID_INPUT`,
 `REGISTRATION_NOT_FOUND`, `INVALID_STATUS`, `CONFLICT`, `INTERNAL_ERROR`.
 
-## 5. Kiểm thử thủ công
+## 6. Kiểm thử thủ công
 
 Điều kiện: `docker compose up -d`, `npm run db:deploy`, `npm run db:seed`.
 
 1. Đăng nhập `medical@due.edu.vn / DUE@12345`.
-2. Vào `/medical/health-check`; chọn chiến dịch mẫu.
-3. Chọn một hồ sơ đã `APPROVED` hoặc `CHECKED_IN`.
-4. Nhập chỉ số hợp lệ (ví dụ `120/80`, nhịp tim `80`, cân nặng `55`, nhóm `O`,
+2. Vào `/medical/scan-id`; chọn chiến dịch mẫu nếu cần.
+3. Quét CCCD bằng camera, tải ảnh hoặc nhập tay 12 số → hệ thống chuyển sang
+   `/medical/health-check?campaignId=...&registrationId=...` với đúng hồ sơ.
+   Kiểm tra hồ sơ vẫn `APPROVED` và `checkInTime = NULL` (không bị check-in).
+4. Chọn một hồ sơ đã `APPROVED` hoặc `CHECKED_IN` trong hàng chờ (hoặc dùng kết quả
+   quét ở bước 3).
+5. Nhập chỉ số hợp lệ (ví dụ `120/80`, nhịp tim `80`, cân nặng `55`, nhóm `O`,
    `350ml`) → hồ sơ chuyển `ELIGIBLE`, panel hiện 2 nút chốt.
-5. Bấm **Thành công** → hồ sơ `COMPLETED`, kiểm tra `AuditLog.action =
+6. Bấm **Thành công** → hồ sơ `COMPLETED`, kiểm tra `AuditLog.action =
    DONATION_COMPLETED`.
-6. Lặp lại với hồ sơ khác và bấm **Thất bại do sự cố** → hồ sơ
+7. Lặp lại với hồ sơ khác và bấm **Thất bại do sự cố** → hồ sơ
    `HEALTH_CHECK_FAILED`, audit `DONATION_FAILED`, `HealthCheck.isPassed` vẫn
    `true`.
-7. Nhập chỉ số không đạt (ví dụ `150/95` hoặc nhịp tim `120`) → hồ sơ
+8. Nhập chỉ số không đạt (ví dụ `150/95` hoặc nhịp tim `120`) → hồ sơ
    `HEALTH_CHECK_FAILED`, audit `HEALTH_CHECK_FAILED`, không hiện nút chốt.
+9. Quét một CCCD của hồ sơ `PENDING` hoặc `REJECTED` → nhận thông báo không thể
+   khám, không mở form chỉ số.
+10. Kiểm tra `AuditLog` có action `MEDICAL_CCCD_LOOKUP` sau mỗi lần quét thành công.
 
-## 6. Lưu ý bảo mật
+## 7. Lưu ý bảo mật
 
 - Kiểm tra role ở server trong cả `evaluateHealth` và `finalizeDonation`.
 - Không tin trạng thái client gửi lên; action đọc lại trạng thái trong transaction.

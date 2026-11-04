@@ -70,6 +70,7 @@ type RegistrationSummary = {
   status: string;
   campaignId: string;
   createdAt: Date;
+  checkInTime: Date | null;
   campaign: { name: string; date: Date };
 };
 
@@ -174,6 +175,123 @@ function resolveCccdInput(formData: FormData): {
   };
 }
 
+type OcrFormInput = {
+  manual: string | null;
+  candidates: string[];
+  campaignId: string | null;
+  source: OcrSource;
+};
+
+type OcrFormError = {
+  success: false;
+  code: string;
+  message: string;
+};
+
+/**
+ * Validate phần dùng chung của mọi yêu cầu OCR CCCD.
+ *
+ * Dùng cho cả check-in (Ban tổ chức) và tra cứu hồ sơ (y tế). Ảnh vẫn được
+ * kiểm tra kích thước/MIME dù server không đọc nội dung ảnh.
+ */
+async function readOcrForm(
+  formData: FormData,
+): Promise<
+  { ok: true; input: OcrFormInput } | { ok: false; error: OcrFormError }
+> {
+  const file = formData.get("file");
+
+  if (!isUploadedFile(file)) {
+    return {
+      ok: false,
+      error: {
+        success: false,
+        code: "FILE_REQUIRED",
+        message: "Vui lòng chọn ảnh CCCD cần quét.",
+      },
+    };
+  }
+
+  if (file.size === 0) {
+    return {
+      ok: false,
+      error: {
+        success: false,
+        code: "FILE_EMPTY",
+        message: "Ảnh tải lên đang rỗng. Vui lòng chọn ảnh khác.",
+      },
+    };
+  }
+
+  if (file.size > MAX_FILE_BYTES) {
+    return {
+      ok: false,
+      error: {
+        success: false,
+        code: "FILE_TOO_LARGE",
+        message: "Ảnh CCCD tối đa 5MB. Vui lòng chọn ảnh nhỏ hơn.",
+      },
+    };
+  }
+
+  if (file.type && !ALLOWED_IMAGE_MIME.test(file.type)) {
+    return {
+      ok: false,
+      error: {
+        success: false,
+        code: "INVALID_FILE_TYPE",
+        message: "Chỉ chấp nhận ảnh JPG, PNG, WEBP, GIF hoặc HEIC.",
+      },
+    };
+  }
+
+  const rawCampaignId = formData.get("campaignId");
+  const source = parseOcrSource(formData.get("source"));
+  let campaignId: string | null = null;
+
+  if (typeof rawCampaignId === "string" && rawCampaignId.trim() !== "") {
+    const parsed = campaignIdSchema.safeParse(rawCampaignId);
+
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: {
+          success: false,
+          code: "INVALID_CAMPAIGN",
+          message: "Chiến dịch không hợp lệ.",
+        },
+      };
+    }
+
+    campaignId = parsed.data;
+  }
+
+  if (campaignId) {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true },
+    });
+
+    if (!campaign) {
+      return {
+        ok: false,
+        error: {
+          success: false,
+          code: "CAMPAIGN_NOT_FOUND",
+          message: "Không tìm thấy chiến dịch.",
+        },
+      };
+    }
+  }
+
+  const { manual, candidates } = resolveCccdInput(formData);
+
+  return {
+    ok: true,
+    input: { manual, candidates, campaignId, source },
+  };
+}
+
 async function findUserByCccd(
   cccd: string,
   campaignId: string | null,
@@ -194,6 +312,7 @@ async function findUserByCccd(
           status: true,
           campaignId: true,
           createdAt: true,
+          checkInTime: true,
           campaign: { select: { name: true, date: true } },
         },
       },
@@ -230,6 +349,7 @@ async function findUserByCandidates(
           status: true,
           campaignId: true,
           createdAt: true,
+          checkInTime: true,
           campaign: { select: { name: true, date: true } },
         },
       },
@@ -291,6 +411,41 @@ async function findUserByCandidates(
   };
 }
 
+type ResolvedUser =
+  | { type: "not_found"; manual: boolean }
+  | { type: "no_registration"; manual: boolean }
+  | { type: "ambiguous" }
+  | { type: "matched"; cccd: string; user: MatchedUser };
+
+/**
+ * Tìm sinh viên từ số nhập tay hoặc các ứng viên OCR.
+ * Không thay đổi trạng thái hồ sơ — dùng chung cho check-in và tra cứu y tế.
+ */
+async function resolveUser(
+  manual: string | null,
+  candidates: string[],
+  campaignId: string | null,
+): Promise<ResolvedUser> {
+  if (manual) {
+    const user = await findUserByCccd(manual, campaignId);
+
+    if (!user) return { type: "not_found", manual: true };
+    if (user.registrations.length === 0) {
+      return { type: "no_registration", manual: true };
+    }
+
+    return { type: "matched", cccd: manual, user };
+  }
+
+  const match = await findUserByCandidates(candidates, campaignId);
+
+  if (match.type === "matched" || match.type === "ambiguous") {
+    return match;
+  }
+
+  return { ...match, manual: false };
+}
+
 export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
   try {
     const session = await getSession();
@@ -312,74 +467,13 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
       };
     }
 
-    const file = formData.get("file");
+    const parsedForm = await readOcrForm(formData);
 
-    if (!isUploadedFile(file)) {
-      return {
-        success: false,
-        code: "FILE_REQUIRED",
-        message: "Vui lòng chọn ảnh CCCD cần quét.",
-      };
+    if (!parsedForm.ok) {
+      return parsedForm.error;
     }
 
-    if (file.size === 0) {
-      return {
-        success: false,
-        code: "FILE_EMPTY",
-        message: "Ảnh tải lên đang rỗng. Vui lòng chọn ảnh khác.",
-      };
-    }
-
-    if (file.size > MAX_FILE_BYTES) {
-      return {
-        success: false,
-        code: "FILE_TOO_LARGE",
-        message: "Ảnh CCCD tối đa 5MB. Vui lòng chọn ảnh nhỏ hơn.",
-      };
-    }
-
-    if (file.type && !ALLOWED_IMAGE_MIME.test(file.type)) {
-      return {
-        success: false,
-        code: "INVALID_FILE_TYPE",
-        message: "Chỉ chấp nhận ảnh JPG, PNG, WEBP, GIF hoặc HEIC.",
-      };
-    }
-
-    const rawCampaignId = formData.get("campaignId");
-    const source = parseOcrSource(formData.get("source"));
-    let campaignId: string | null = null;
-
-    if (typeof rawCampaignId === "string" && rawCampaignId.trim() !== "") {
-      const parsed = campaignIdSchema.safeParse(rawCampaignId);
-
-      if (!parsed.success) {
-        return {
-          success: false,
-          code: "INVALID_CAMPAIGN",
-          message: "Chiến dịch không hợp lệ.",
-        };
-      }
-
-      campaignId = parsed.data;
-    }
-
-    if (campaignId) {
-      const campaign = await prisma.campaign.findUnique({
-        where: { id: campaignId },
-        select: { id: true },
-      });
-
-      if (!campaign) {
-        return {
-          success: false,
-          code: "CAMPAIGN_NOT_FOUND",
-          message: "Không tìm thấy chiến dịch cần check-in.",
-        };
-      }
-    }
-
-    const { manual, candidates } = resolveCccdInput(formData);
+    const { manual, candidates, campaignId, source } = parsedForm.input;
 
     if (!manual && candidates.length === 0) {
       return {
@@ -390,67 +484,39 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
       };
     }
 
-    let matchedCccd: string;
-    let user: MatchedUser;
+    const match = await resolveUser(manual, candidates, campaignId);
 
-    if (manual) {
-      const manualUser = await findUserByCccd(manual, campaignId);
-
-      if (!manualUser) {
-        return {
-          success: false,
-          code: "CCCD_NOT_FOUND",
-          message:
-            "Không tìm thấy sinh viên khớp với số CCCD đã nhập. Vui lòng kiểm tra lại số trên thẻ hoặc hồ sơ.",
-        };
-      }
-
-      if (manualUser.registrations.length === 0) {
-        return {
-          success: false,
-          code: "REGISTRATION_NOT_FOUND",
-          message: campaignId
-            ? "Sinh viên này chưa đăng ký chiến dịch đang chọn."
-            : "Sinh viên này chưa có hồ sơ đăng ký đang hoạt động.",
-        };
-      }
-
-      matchedCccd = manual;
-      user = manualUser;
-    } else {
-      const match = await findUserByCandidates(candidates, campaignId);
-
-      if (match.type === "not_found") {
-        return {
-          success: false,
-          code: "CCCD_NOT_FOUND",
-          message:
-            "Không tìm thấy sinh viên khớp với số CCCD nhận diện được. Vui lòng chụp lại rõ hơn, kiểm tra ánh sáng hoặc nhập tay 12 số trên thẻ.",
-        };
-      }
-
-      if (match.type === "no_registration") {
-        return {
-          success: false,
-          code: "REGISTRATION_NOT_FOUND",
-          message: campaignId
-            ? "Sinh viên này chưa đăng ký chiến dịch đang chọn."
-            : "Sinh viên này chưa có hồ sơ đăng ký đang hoạt động.",
-        };
-      }
-
-      if (match.type === "ambiguous") {
-        return {
-          success: false,
-          code: "AMBIGUOUS_CCCD",
-          message:
-            "Nhận diện được nhiều số CCCD khác nhau trên ảnh. Vui lòng chụp lại rõ hơn hoặc nhập tay 12 số in trên thẻ.",
-        };
-      }
-
-      matchedCccd = match.cccd;
-      user = match.user;
+    if (match.type === "not_found") {
+      return {
+        success: false,
+        code: "CCCD_NOT_FOUND",
+        message: match.manual
+          ? "Không tìm thấy sinh viên khớp với số CCCD đã nhập. Vui lòng kiểm tra lại số trên thẻ hoặc hồ sơ."
+          : "Không tìm thấy sinh viên khớp với số CCCD nhận diện được. Vui lòng chụp lại rõ hơn, kiểm tra ánh sáng hoặc nhập tay 12 số trên thẻ.",
+      };
     }
+
+    if (match.type === "no_registration") {
+      return {
+        success: false,
+        code: "REGISTRATION_NOT_FOUND",
+        message: campaignId
+          ? "Sinh viên này chưa đăng ký chiến dịch đang chọn."
+          : "Sinh viên này chưa có hồ sơ đăng ký đang hoạt động.",
+      };
+    }
+
+    if (match.type === "ambiguous") {
+      return {
+        success: false,
+        code: "AMBIGUOUS_CCCD",
+        message:
+          "Nhận diện được nhiều số CCCD khác nhau trên ảnh. Vui lòng chụp lại rõ hơn hoặc nhập tay 12 số in trên thẻ.",
+      };
+    }
+
+    const matchedCccd = match.cccd;
+    const user = match.user;
 
     const target =
       user.registrations.find((item) => item.status === "APPROVED") ??
@@ -563,6 +629,173 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
       success: false,
       code: "INTERNAL_ERROR",
       message: "Không thể xử lý ảnh CCCD. Vui lòng thử lại sau.",
+    };
+  }
+}
+
+export type MedicalLookupData = {
+  registrationId: string;
+  studentName: string;
+  studentEmail: string;
+  cccdMasked: string;
+  campaignId: string;
+  campaignName: string;
+  status: string;
+  checkInTime: string | null;
+};
+
+export type MedicalLookupResult = {
+  success: boolean;
+  code?: string;
+  message: string;
+  data?: MedicalLookupData;
+};
+
+/** Trạng thái hồ sơ có thể mở từ màn hình khám sức khỏe. */
+const MEDICAL_LOOKUP_STATUSES = [
+  "APPROVED",
+  "CHECKED_IN",
+  "ELIGIBLE",
+  "HEALTH_CHECK_FAILED",
+  "COMPLETED",
+] as const;
+
+/**
+ * Tra cứu hồ sơ theo CCCD cho nhân viên y tế.
+ *
+ * Khác với `processCccdOcr`, action này KHÔNG check-in và KHÔNG đổi trạng
+ * thái hồ sơ. Nó chỉ xác định đúng sinh viên trong chiến dịch để mở form nhập
+ * chỉ số khám. Nhờ vậy quét CCCD ở khu vực y tế không vô tình đánh dấu
+ * "đã check-in" cho người chưa đến quầy.
+ */
+export async function lookupCccdForMedical(
+  formData: FormData,
+): Promise<MedicalLookupResult> {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return {
+        success: false,
+        code: "UNAUTHENTICATED",
+        message: "Bạn cần đăng nhập để tra cứu hồ sơ khám.",
+      };
+    }
+
+    if (session.role !== "MEDICAL") {
+      return {
+        success: false,
+        code: "FORBIDDEN",
+        message: "Chỉ nhân viên y tế mới có quyền tra cứu hồ sơ khám.",
+      };
+    }
+
+    const parsedForm = await readOcrForm(formData);
+
+    if (!parsedForm.ok) {
+      return parsedForm.error;
+    }
+
+    const { manual, candidates, campaignId } = parsedForm.input;
+
+    if (!manual && candidates.length === 0) {
+      return {
+        success: false,
+        code: "INVALID_CCCD",
+        message:
+          "Không nhận diện được số CCCD hợp lệ. Vui lòng đưa phần số CCCD trên thẻ vào khung hình hoặc nhập tay 12 chữ số.",
+      };
+    }
+
+    const match = await resolveUser(manual, candidates, campaignId);
+
+    if (match.type === "not_found") {
+      return {
+        success: false,
+        code: "CCCD_NOT_FOUND",
+        message: match.manual
+          ? "Không tìm thấy sinh viên khớp với số CCCD đã nhập. Vui lòng kiểm tra lại số trên thẻ hoặc hồ sơ."
+          : "Không tìm thấy sinh viên khớp với số CCCD nhận diện được. Vui lòng chụp lại rõ hơn, kiểm tra ánh sáng hoặc nhập tay 12 số trên thẻ.",
+      };
+    }
+
+    if (match.type === "no_registration") {
+      return {
+        success: false,
+        code: "REGISTRATION_NOT_FOUND",
+        message: campaignId
+          ? "Sinh viên này chưa đăng ký chiến dịch đang chọn."
+          : "Sinh viên này chưa có hồ sơ đăng ký đang hoạt động.",
+      };
+    }
+
+    if (match.type === "ambiguous") {
+      return {
+        success: false,
+        code: "AMBIGUOUS_CCCD",
+        message:
+          "Nhận diện được nhiều số CCCD khác nhau trên ảnh. Vui lòng chụp lại rõ hơn hoặc nhập tay 12 số in trên thẻ.",
+      };
+    }
+
+    const registration =
+      match.user.registrations.find(
+        (item) => item.status === "APPROVED" || item.status === "CHECKED_IN",
+      ) ??
+      match.user.registrations.find((item) => item.status === "ELIGIBLE") ??
+      match.user.registrations[0];
+
+    if (
+      !(MEDICAL_LOOKUP_STATUSES as readonly string[]).includes(
+        registration.status,
+      )
+    ) {
+      return {
+        success: false,
+        code:
+          registration.status === "PENDING"
+            ? "REGISTRATION_NOT_APPROVED"
+            : "REGISTRATION_BLOCKED",
+        message:
+          registration.status === "PENDING"
+            ? "Hồ sơ chưa được duyệt nên chưa thể khám sức khỏe."
+            : "Hồ sơ đã bị từ chối nên không thể khám sức khỏe.",
+      };
+    }
+
+    await writeAuditLog({
+      action: "MEDICAL_CCCD_LOOKUP",
+      userId: session.userId,
+      details: {
+        registrationId: registration.id,
+        campaignId: registration.campaignId,
+        role: session.role,
+        cccdLast4: match.cccd.slice(-4),
+      },
+    });
+
+    return {
+      success: true,
+      code: "FOUND",
+      message: `Đã mở hồ sơ của ${match.user.name}.`,
+      data: {
+        registrationId: registration.id,
+        studentName: match.user.name,
+        studentEmail: match.user.email,
+        cccdMasked: maskCccd(match.cccd),
+        campaignId: registration.campaignId,
+        campaignName: registration.campaign.name,
+        status: registration.status,
+        checkInTime: registration.checkInTime?.toISOString() ?? null,
+      },
+    };
+  } catch (error) {
+    console.error("[lookupCccdForMedical] Lỗi:", error);
+
+    return {
+      success: false,
+      code: "INTERNAL_ERROR",
+      message: "Không thể tra cứu hồ sơ từ ảnh CCCD. Vui lòng thử lại sau.",
     };
   }
 }
