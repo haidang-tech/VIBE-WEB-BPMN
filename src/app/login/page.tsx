@@ -5,7 +5,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -62,9 +61,6 @@ export default async function LoginPage({
             🩸
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Hiến máu DUE</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Đăng nhập để tiếp tục
-          </p>
         </div>
 
         {registered ? (
@@ -80,9 +76,6 @@ export default async function LoginPage({
         <Card className="shadow-soft backdrop-blur">
           <CardHeader>
             <CardTitle className="text-base">Chào mừng trở lại</CardTitle>
-            <CardDescription>
-              Nhập tài khoản sinh viên hoặc cán bộ để tiếp tục.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <LoginForm nextPath={nextPath} />

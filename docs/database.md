@@ -144,6 +144,8 @@ Nếu dùng PostgreSQL có sẵn, chỉ cần sửa `DATABASE_URL` trong `.env` 
 - `DATABASE_URL` bắt buộc cho Prisma CLI và runtime.
 - Prisma Client được generate vào `node_modules/@prisma/client`; import qua
   `src/lib/prisma.ts` để dùng singleton (tránh cạn connection khi hot-reload).
-- Migration khởi tạo đã được tạo sẵn bằng `prisma migrate diff` và **chưa apply**
-  (môi trường hiện tại không có PostgreSQL đang chạy). Chạy `npm run db:migrate`
-  để áp dụng.
+- Các migration hiện có (`init`, `student_registration_form`, `preferred_slots`) đã
+  được áp dụng vào PostgreSQL dev. Kiểm tra bằng `npx prisma migrate status`; nếu
+  môi trường mới chưa có DB, chạy `docker compose up -d` rồi `npm run db:deploy`.
+  Nếu container vừa khởi động, đợi vài giây để healthcheck chuyển sang `healthy`
+  trước khi kết nối (tránh lỗi `P1001`).

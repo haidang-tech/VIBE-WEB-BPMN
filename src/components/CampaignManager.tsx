@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -204,14 +203,13 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
     }
   });
 
+  function requestDelete(campaign: CampaignRow) {
+    if (deletingId) return;
+    setPendingDelete(campaign);
+  }
+
   async function handleDelete(campaign: CampaignRow) {
     if (deletingId) return;
-
-    const confirmed = window.confirm(
-      `Xóa chiến dịch "${campaign.name}"? Thao tác này không thể hoàn tác.`,
-    );
-
-    if (!confirmed) return;
 
     setDeletingId(campaign.id);
 
@@ -239,6 +237,7 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
       });
     } finally {
       setDeletingId(null);
+      setPendingDelete(null);
     }
   }
 
@@ -363,7 +362,7 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
                               variant="ghost"
                               size="sm"
                               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => handleDelete(campaign)}
+                              onClick={() => requestDelete(campaign)}
                               disabled={
                                 saving ||
                                 deleting ||
@@ -405,11 +404,6 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
                 <CardTitle className="text-base">
                   {editingCampaign ? "Sửa chiến dịch" : "Tạo chiến dịch mới"}
                 </CardTitle>
-                <CardDescription>
-                  {editingCampaign
-                    ? editingCampaign.name
-                    : "Điền thông tin và chỉ tiêu tiếp nhận."}
-                </CardDescription>
               </div>
               {editingCampaign ? (
                 <Button
@@ -525,12 +519,6 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
                 <p className="mt-1 text-xl font-semibold tabular-nums">
                   {previewSlots.toLocaleString("vi-VN")} suất
                 </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  {Number.isFinite(capacityValue) ? capacityValue : 0} ×{" "}
-                  {Number.isFinite(overbookValue)
-                    ? overbookValue.toFixed(2)
-                    : "0.00"}
-                </p>
               </div>
 
               <Button
@@ -559,6 +547,31 @@ export default function CampaignManager({ campaigns, defaultDate }: Props) {
           </CardContent>
         </Card>
       </aside>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Xóa chiến dịch?"
+        description={
+          pendingDelete ? (
+            <>
+              Chiến dịch{" "}
+              <span className="text-foreground font-medium">
+                “{pendingDelete.name}”
+              </span>{" "}
+              sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.
+            </>
+          ) : null
+        }
+        tone="destructive"
+        confirmLabel="Xóa chiến dịch"
+        loading={Boolean(deletingId)}
+        onConfirm={() => {
+          if (pendingDelete) void handleDelete(pendingDelete);
+        }}
+        onClose={() => {
+          if (!deletingId) setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }

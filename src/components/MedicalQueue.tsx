@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RegStatus } from "@prisma/client";
 import {
-  CalendarDays,
   Clock3,
   Search,
   SearchX,
@@ -152,9 +151,6 @@ export default function MedicalQueue({
               <Users className="text-primary size-4" aria-hidden />
               Hàng chờ khám
             </h2>
-            <p className="text-muted-foreground mt-0.5 text-xs">
-              Chọn hồ sơ để nhập chỉ số hoặc chốt kết quả.
-            </p>
           </div>
           <Badge variant="neutral" className="tabular-nums">
             {items.length} hồ sơ
@@ -277,11 +273,6 @@ export default function MedicalQueue({
           })
         )}
       </div>
-
-      <p className="text-muted-foreground border-border/70 flex items-center gap-1.5 border-t pt-3 text-xs">
-        <CalendarDays className="size-3.5 shrink-0" aria-hidden />
-        Ưu tiên hồ sơ đã check-in và đang chờ khám.
-      </p>
     </aside>
   );
 }

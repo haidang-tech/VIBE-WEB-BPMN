@@ -152,14 +152,10 @@ export default async function StudentRegisterPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1.5">
-        <p className="text-primary text-sm font-medium">Khu vực sinh viên</p>
+      <header>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Đăng ký hiến máu
         </h1>
-        <p className="text-muted-foreground max-w-2xl text-sm">
-          Điền hồ sơ, chọn khung giờ và gửi đăng ký chỉ trong vài phút.
-        </p>
       </header>
 
       {activeRegistration ? (
@@ -191,9 +187,6 @@ export default async function StudentRegisterPage() {
               <CalendarDays className="text-muted-foreground size-6" />
             </div>
             <CardTitle>Chưa có chiến dịch đang mở</CardTitle>
-            <CardDescription>
-              Ban tổ chức chưa công bố chiến dịch mới. Quay lại sau nhé!
-            </CardDescription>
           </CardHeader>
         </Card>
       ) : (

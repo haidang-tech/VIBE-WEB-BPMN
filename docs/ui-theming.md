@@ -47,6 +47,7 @@ theo theme.
 | Thành phần | File | Cách dùng |
 | --- | --- | --- |
 | Toast toàn cục | `components/ui/toast.tsx` | `useToast().toast({ tone, title, description })`; trượt từ phải, tự đóng sau 5s |
+| Hộp thoại xác nhận | `components/ui/confirm-dialog.tsx` | `ConfirmDialog` thay cho `window.confirm` (xóa chiến dịch, chốt ca hiến máu); nền kính mờ, đóng bằng Esc |
 | Confetti | `components/ui/confetti.tsx` | `<Confetti show={celebrate} />` khi đăng ký thành công |
 | Skeleton | `components/ui/skeleton.tsx` | primitive `animate-pulse` |
 | Page skeleton | `components/PageSkeleton.tsx` | dùng trong `loading.tsx` của các route |

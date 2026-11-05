@@ -163,16 +163,10 @@ export default async function OrganizerCheckInPage({
     null;
 
   const header = (
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div className="space-y-1.5">
-        <p className="text-primary text-sm font-medium">Khu vực Ban tổ chức</p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Check-in chiến dịch
-        </h1>
-        <p className="text-muted-foreground max-w-2xl text-sm">
-          Theo dõi hồ sơ, quét CCCD và check-in sinh viên khi đến chiến dịch.
-        </p>
-      </div>
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        Check-in chiến dịch
+      </h1>
       <RefreshButton />
     </header>
   );
@@ -379,9 +373,6 @@ export default async function OrganizerCheckInPage({
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Danh sách hồ sơ</CardTitle>
-              <CardDescription>
-                Hồ sơ của chiến dịch đang chọn, sắp xếp theo thời gian đăng ký.
-              </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -430,9 +421,6 @@ export default async function OrganizerCheckInPage({
                             <p className="text-sm font-medium">
                               {registration.user.name}
                             </p>
-                            <p className="text-muted-foreground text-xs">
-                              {registration.user.email}
-                            </p>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs">
                             {registration.slotTime ?? "—"}
@@ -472,50 +460,12 @@ export default async function OrganizerCheckInPage({
           </Card>
         </div>
 
-        <aside className="space-y-4">
+        <aside>
           <CccdUploader
             key={selectedCampaign.id}
             campaignId={selectedCampaign.id}
             campaignName={selectedCampaign.name}
           />
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ScanLine className="text-primary size-4" aria-hidden />
-                Quy trình check-in
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ol className="text-muted-foreground space-y-3 text-sm">
-                <li className="flex gap-2.5">
-                  <span className="bg-primary/10 text-primary grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold">
-                    1
-                  </span>
-                  Tải ảnh mặt trước CCCD của sinh viên.
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="bg-primary/10 text-primary grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold">
-                    2
-                  </span>
-                  Hệ thống OCR giả lập trả về số CCCD sau 1 giây.
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="bg-primary/10 text-primary grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold">
-                    3
-                  </span>
-                  Đối chiếu blind index với hồ sơ và chuyển trạng thái sang
-                  CHECKED_IN.
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="bg-primary/10 text-primary grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold">
-                    4
-                  </span>
-                  Mọi thao tác được ghi vào AuditLog.
-                </li>
-              </ol>
-            </CardContent>
-          </Card>
         </aside>
       </div>
     </div>

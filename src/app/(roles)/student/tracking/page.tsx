@@ -130,16 +130,10 @@ export default async function StudentTrackingPage({
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1.5">
-          <p className="text-primary text-sm font-medium">Khu vực sinh viên</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Theo dõi tiến độ hiến máu
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Theo dõi từng bước: Đăng ký → Duyệt → Check-in → Khám → Hoàn thành.
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Theo dõi tiến độ hiến máu
+        </h1>
 
         {selected ? (
           <div className="flex gap-2">
@@ -172,9 +166,6 @@ export default async function StudentTrackingPage({
               <ClipboardList className="text-muted-foreground size-6" />
             </div>
             <CardTitle>Chưa có hồ sơ hiến máu</CardTitle>
-            <CardDescription>
-              Đăng ký một chiến dịch để bắt đầu theo dõi tiến độ.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>

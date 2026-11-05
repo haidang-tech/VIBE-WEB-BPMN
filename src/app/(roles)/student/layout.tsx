@@ -19,7 +19,7 @@ export default async function StudentLayout({
   const [user, nextRegistration] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.userId },
-      select: { name: true, email: true },
+      select: { name: true },
     }),
     prisma.registration.findFirst({
       where: {
@@ -69,14 +69,9 @@ export default async function StudentLayout({
           <StudentNav />
 
           <div className="ml-auto flex items-center gap-3">
-            <div className="hidden text-right md:block">
-              <p className="max-w-40 truncate text-sm leading-tight font-medium">
-                {user?.name ?? "Sinh viên"}
-              </p>
-              <p className="text-muted-foreground max-w-48 truncate text-xs">
-                {user?.email ?? ""}
-              </p>
-            </div>
+            <p className="hidden max-w-48 truncate text-sm font-medium md:block">
+              {user?.name ?? "Sinh viên"}
+            </p>
             <ThemeToggle />
             <LogoutButton />
           </div>
@@ -88,13 +83,6 @@ export default async function StudentLayout({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         {children}
       </main>
-
-      <footer className="border-border/70 border-t">
-        <div className="text-muted-foreground mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs">
-          <p>Hệ thống hiến máu sinh viên DUE — Trường Đại học Kinh tế, ĐHĐN.</p>
-          <p>Hỗ trợ: ban tổ chức tại văn phòng Đoàn – Hội.</p>
-        </div>
-      </footer>
     </div>
   );
 }

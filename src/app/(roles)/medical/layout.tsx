@@ -17,7 +17,7 @@ export default async function MedicalLayout({
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { name: true, email: true },
+    select: { name: true },
   });
 
   return (
@@ -40,14 +40,9 @@ export default async function MedicalLayout({
           <MedicalNav />
 
           <div className="ml-auto flex items-center gap-3">
-            <div className="hidden text-right md:block">
-              <p className="max-w-40 truncate text-sm leading-tight font-medium">
-                {user?.name ?? "Nhân viên y tế"}
-              </p>
-              <p className="text-muted-foreground max-w-48 truncate text-xs">
-                {user?.email ?? ""}
-              </p>
-            </div>
+            <p className="hidden max-w-48 truncate text-sm font-medium md:block">
+              {user?.name ?? "Nhân viên y tế"}
+            </p>
             <ThemeToggle />
             <LogoutButton />
           </div>
@@ -57,13 +52,6 @@ export default async function MedicalLayout({
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
         {children}
       </main>
-
-      <footer className="border-border/70 border-t">
-        <div className="text-muted-foreground mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs">
-          <p>Hệ thống hiến máu sinh viên DUE — Trường Đại học Kinh tế, ĐHĐN.</p>
-          <p>Khu vực y tế · Nhập chỉ số & chốt kết quả hiến máu.</p>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -85,17 +85,10 @@ export default async function AdminCampaignsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1.5">
-          <p className="text-primary text-sm font-medium">Khu vực quản trị</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Quản lý chiến dịch
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Tạo và quản lý chiến dịch. Chỉnh chỉ tiêu và tỷ lệ overbook để kiểm
-            soát số suất tiếp nhận.
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Quản lý chiến dịch
+        </h1>
         <RefreshButton />
       </header>
 

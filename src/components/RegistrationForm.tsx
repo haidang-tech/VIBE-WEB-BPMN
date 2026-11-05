@@ -36,7 +36,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -559,9 +558,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
               <UserRound className="text-primary size-5" aria-hidden />
               Hồ sơ đăng ký hiến máu
             </CardTitle>
-            <CardDescription>
-              Điền 3 bước, hệ thống kiểm tra điều kiện ngay khi bạn nhập.
-            </CardDescription>
           </CardHeader>
 
           <CardContent className="py-6">
@@ -679,10 +675,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       <UserRound className="text-primary size-4" aria-hidden />
                       Thông tin sinh viên
                     </h2>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      Thông tin dùng để đối chiếu danh tính và liên hệ khi cần
-                      thiết. CCCD được mã hóa trước khi lưu.
-                    </p>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -933,10 +925,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       />
                       Chỉ số thể trạng & tiền sử sức khỏe
                     </h2>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      Khai báo trung thực giúp nhân viên y tế đánh giá an toàn
-                      trước khi hiến máu.
-                    </p>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -1147,11 +1135,11 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       />
                     </ul>
 
-                    <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
-                      {preview && !preview.eligible
-                        ? `Lưu ý: ${preview.reasons.join("; ")}. Hồ sơ vẫn có thể gửi nhưng sẽ được ghi nhận là bị từ chối.`
-                        : "Kết quả sơ bộ chỉ mang tính tham khảo; máy chủ là nơi quyết định cuối cùng."}
-                    </p>
+                    {preview && !preview.eligible ? (
+                      <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+                        {`Lưu ý: ${preview.reasons.join("; ")}. Hồ sơ vẫn có thể gửi nhưng sẽ được ghi nhận là bị từ chối.`}
+                      </p>
+                    ) : null}
                   </div>
                 </section>
               ) : null}
@@ -1167,10 +1155,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       />
                       Lịch trình hiến máu
                     </h2>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      Chọn chiến dịch và các khung giờ bạn có thể tham gia. Hệ
-                      thống tự cân bằng để tránh đông đúc.
-                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -1229,8 +1213,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       id="preferredSlots-help"
                       className="text-muted-foreground text-xs"
                     >
-                      Chọn một hoặc nhiều khung giờ. Hệ thống sẽ xếp bạn vào
-                      khung ít đông nhất trong các lựa chọn.
+                      Chọn một hoặc nhiều khung giờ.
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {DONATION_SLOTS.map((slot) => (
@@ -1323,12 +1306,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       />
                     </div>
 
-                    <p className="text-muted-foreground mt-3 flex items-start gap-1.5 text-xs">
-                      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                      Hệ thống sẽ phân bạn vào khung ít đông nhất trong các lựa
-                      chọn trên.
-                    </p>
-
                     {hasHealthFlag ? (
                       <Alert variant="warning" className="mt-4">
                         <AlertTriangle />
@@ -1371,12 +1348,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
               ) : null}
 
               {/* --- Navigation --------------------------------------- */}
-              <div className="border-border/70 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                  <Lock className="size-3.5" aria-hidden />
-                  Dữ liệu cá nhân được mã hóa AES-256-GCM.
-                </p>
-
+              <div className="border-border/70 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-end">
                 <div className="flex items-center gap-2">
                   {step > 0 ? (
                     <Button
@@ -1439,11 +1411,6 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                 <Ticket className="text-primary size-4" aria-hidden />
                 {selectedCampaign ? selectedCampaign.name : "Chiến dịch"}
               </CardTitle>
-              <CardDescription>
-                {selectedCampaign
-                  ? "Thông tin chiến dịch bạn đang chọn"
-                  : "Chọn một chiến dịch để xem chi tiết"}
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-2 text-sm">
@@ -1475,16 +1442,11 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
               </div>
 
               {selectedCampaign ? (
-                <div className="space-y-1.5">
-                  <div className="bg-muted h-2 overflow-hidden rounded-full">
-                    <div
-                      className="bg-primary h-full rounded-full transition-all"
-                      style={{ width: `${usedPercent}%` }}
-                    />
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Đã nhận {usedSlots}/{selectedCampaign.maxSlots} hồ sơ
-                  </p>
+                <div className="bg-muted h-2 overflow-hidden rounded-full">
+                  <div
+                    className="bg-primary h-full rounded-full transition-all"
+                    style={{ width: `${usedPercent}%` }}
+                  />
                 </div>
               ) : null}
             </CardContent>

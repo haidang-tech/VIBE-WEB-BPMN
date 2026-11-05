@@ -68,11 +68,6 @@ export default function TrackingStepper({ status }: { status: RegStatus }) {
           </p>
           <div className="mt-1.5 flex items-center gap-2">
             <Badge variant={TONE_TO_BADGE[meta.tone]}>{meta.label}</Badge>
-            {meta.isFinished && !meta.isFailure ? (
-              <span className="text-muted-foreground text-xs">
-                Hồ sơ đã kết thúc
-              </span>
-            ) : null}
           </div>
         </div>
         <p className="text-muted-foreground text-xs">

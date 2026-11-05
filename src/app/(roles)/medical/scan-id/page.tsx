@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -100,17 +99,10 @@ export default async function MedicalScanIdPage({
     null;
 
   const header = (
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div className="space-y-1.5">
-        <p className="text-primary text-sm font-medium">Khu vực y tế</p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Quét CCCD khám sức khỏe
-        </h1>
-        <p className="text-muted-foreground max-w-2xl text-sm">
-          Quét CCCD để mở hồ sơ và nhập chỉ số khám. Hồ sơ chỉ đổi trạng thái
-          sau khi lưu kết quả.
-        </p>
-      </div>
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        Quét CCCD khám sức khỏe
+      </h1>
       <div className="flex gap-2">
         <RefreshButton />
         <Button asChild variant="outline">
@@ -133,9 +125,6 @@ export default async function MedicalScanIdPage({
               <CalendarDays className="text-muted-foreground size-6" />
             </div>
             <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
-            <CardDescription>
-              Kích hoạt chiến dịch để bắt đầu quét CCCD.
-            </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -229,9 +218,6 @@ export default async function MedicalScanIdPage({
                 <ClipboardCheck className="text-success size-4" aria-hidden />
                 Khám gần đây
               </CardTitle>
-              <CardDescription>
-                Cập nhật sau mỗi lần lưu chỉ số khám.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {recentHealthChecks.length === 0 ? (

@@ -17,7 +17,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -139,16 +138,10 @@ export default async function MedicalHealthCheckPage({
     null;
 
   const header = (
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div className="space-y-1.5">
-        <p className="text-primary text-sm font-medium">Khu vực y tế</p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Khám sức khỏe & chốt kết quả
-        </h1>
-        <p className="text-muted-foreground max-w-2xl text-sm">
-          Nhập chỉ số khám và chốt kết quả hiến máu cho từng hồ sơ.
-        </p>
-      </div>
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        Khám sức khỏe & chốt kết quả
+      </h1>
       <RefreshButton />
     </header>
   );
@@ -163,9 +156,6 @@ export default async function MedicalHealthCheckPage({
               <CalendarDays className="text-muted-foreground size-6" />
             </div>
             <CardTitle>Chưa có chiến dịch đang hoạt động</CardTitle>
-            <CardDescription>
-              Kích hoạt chiến dịch để bắt đầu khám và chốt kết quả.
-            </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -393,9 +383,6 @@ export default async function MedicalHealthCheckPage({
                   <Stethoscope className="text-muted-foreground size-6" />
                 </div>
                 <CardTitle>Chọn một hồ sơ để bắt đầu</CardTitle>
-                <CardDescription>
-                  Chọn hồ sơ ở hàng chờ bên trái để nhập chỉ số.
-                </CardDescription>
               </CardHeader>
             </Card>
           )}

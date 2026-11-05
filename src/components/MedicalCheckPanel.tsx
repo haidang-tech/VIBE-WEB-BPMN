@@ -31,6 +31,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -118,6 +119,9 @@ export default function MedicalCheckPanel({ registration }: Props) {
   const [finalizing, setFinalizing] = useState<"SUCCESS" | "INCIDENT" | null>(
     null,
   );
+  const [pendingFinalize, setPendingFinalize] = useState<
+    "SUCCESS" | "INCIDENT" | null
+  >(null);
 
   const existing = registration.healthCheck;
 
@@ -223,14 +227,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
   async function handleFinalize(outcome: "SUCCESS" | "INCIDENT") {
     if (finalizing) return;
 
-    const confirmed = window.confirm(
-      outcome === "SUCCESS"
-        ? "Xác nhận ca hiến máu THÀNH CÔNG? Hồ sơ sẽ được đóng ở trạng thái Hoàn thành."
-        : "Xác nhận ca hiến máu THẤT BẠI do sự cố? Hồ sơ sẽ được đóng và không tính chỉ tiêu.",
-    );
-
-    if (!confirmed) return;
-
     setFinalizing(outcome);
 
     try {
@@ -265,6 +261,7 @@ export default function MedicalCheckPanel({ registration }: Props) {
       });
     } finally {
       setFinalizing(null);
+      setPendingFinalize(null);
     }
   }
 
@@ -367,10 +364,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
                 side="top"
               />
             </CardTitle>
-            <CardDescription>
-              Nhập nhanh các chỉ số lâm sàng. Hệ thống tự đánh giá cổng XOR 3
-              (huyết áp và nhịp tim).
-            </CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -504,10 +497,6 @@ export default function MedicalCheckPanel({ registration }: Props) {
               <BadgeCheck className="text-success size-4" aria-hidden />
               Chốt kết quả hiến máu
             </CardTitle>
-            <CardDescription>
-              Sức khỏe đã đạt. Chọn kết quả sau khi lấy máu — thao tác này sẽ
-              đóng hồ sơ và ghi AuditLog.
-            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-3">
@@ -517,7 +506,7 @@ export default function MedicalCheckPanel({ registration }: Props) {
                 variant="success"
                 size="lg"
                 disabled={finalizing !== null}
-                onClick={() => handleFinalize("SUCCESS")}
+                onClick={() => setPendingFinalize("SUCCESS")}
                 className="h-24 flex-col gap-1 text-base font-semibold"
               >
                 {finalizing === "SUCCESS" ? (
@@ -539,7 +528,7 @@ export default function MedicalCheckPanel({ registration }: Props) {
                 variant="destructive"
                 size="lg"
                 disabled={finalizing !== null}
-                onClick={() => handleFinalize("INCIDENT")}
+                onClick={() => setPendingFinalize("INCIDENT")}
                 className="h-24 flex-col gap-1 text-base font-semibold"
               >
                 {finalizing === "INCIDENT" ? (
@@ -621,6 +610,43 @@ export default function MedicalCheckPanel({ registration }: Props) {
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <ConfirmDialog
+        open={pendingFinalize !== null}
+        title={
+          pendingFinalize === "SUCCESS"
+            ? "Chốt ca hiến máu thành công?"
+            : "Ghi nhận ca thất bại do sự cố?"
+        }
+        description={
+          pendingFinalize === "SUCCESS" ? (
+            <>
+              Hồ sơ sẽ được đóng ở trạng thái{" "}
+              <span className="text-foreground font-medium">Hoàn thành</span> và
+              được tính vào chỉ tiêu chiến dịch.
+            </>
+          ) : (
+            <>
+              Hồ sơ sẽ được đóng ở trạng thái{" "}
+              <span className="text-foreground font-medium">Không đạt</span> và
+              không tính chỉ tiêu. Thao tác không thể hoàn tác.
+            </>
+          )
+        }
+        tone={pendingFinalize === "SUCCESS" ? "success" : "destructive"}
+        confirmLabel={
+          pendingFinalize === "SUCCESS"
+            ? "Xác nhận thành công"
+            : "Xác nhận thất bại"
+        }
+        loading={finalizing !== null}
+        onConfirm={() => {
+          if (pendingFinalize) void handleFinalize(pendingFinalize);
+        }}
+        onClose={() => {
+          if (!finalizing) setPendingFinalize(null);
+        }}
+      />
     </div>
   );
 }

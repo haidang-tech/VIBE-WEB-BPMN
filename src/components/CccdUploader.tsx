@@ -24,7 +24,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -102,7 +101,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
 
 export default function CccdUploader({
   campaignId,
-  campaignName,
   intent = "checkin",
 }: Props) {
   const router = useRouter();
@@ -609,11 +607,6 @@ export default function CccdUploader({
             side="top"
           />
         </CardTitle>
-        <CardDescription>
-          {isMedical
-            ? "Đưa mặt trước CCCD vào khung hình để mở hồ sơ và nhập chỉ số khám. Thao tác này không check-in."
-            : "Đưa mặt trước CCCD vào khung hình để nhận diện 12 số và check-in."}
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -943,10 +936,6 @@ export default function CccdUploader({
             </>
           )}
         </Button>
-
-        <p className="text-muted-foreground text-center text-xs">
-          Chiến dịch: <span className="text-foreground">{campaignName}</span>
-        </p>
 
         {result ? (
           <Alert variant={resultVariant}>
