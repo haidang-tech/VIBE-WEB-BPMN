@@ -25,7 +25,8 @@ export const ROLE_PREFIX: Record<UserRole, string> = {
 
 /** Các route công khai, không cần JWT */
 export const PUBLIC_PATHS = [
-  // Trang giới thiệu dành cho khách; người đã đăng nhập được page redirect về ROLE_HOME.
+  // Trang giới thiệu dành cho khách; người đã đăng nhập vẫn xem được và có
+  // liên kết quay lại bảng điều khiển của mình.
   "/",
   "/login",
   "/register",

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   lookupCccdForMedical,
+  lookupCccdForMedicalManual,
   manualCheckIn,
   processCccdOcr,
   type MedicalLookupResult,
@@ -505,15 +506,34 @@ export default function CccdUploader({
       setFileError(null);
 
       try {
-        const response = await manualCheckIn({
-          campaignId,
-          cccd: trimmedCccd,
-        });
-        setResult(response);
+        if (isMedical) {
+          const response = await lookupCccdForMedicalManual({
+            campaignId,
+            cccd: trimmedCccd,
+          });
+          setResult(response);
 
-        if (response.success) {
-          setManualCccd("");
-          router.refresh();
+          if (response.success && response.data) {
+            setManualCccd("");
+            router.push(
+              `/medical/health-check?campaignId=${encodeURIComponent(
+                campaignId,
+              )}&registrationId=${encodeURIComponent(
+                response.data.registrationId,
+              )}`,
+            );
+          }
+        } else {
+          const response = await manualCheckIn({
+            campaignId,
+            cccd: trimmedCccd,
+          });
+          setResult(response);
+
+          if (response.success) {
+            setManualCccd("");
+            router.refresh();
+          }
         }
       } catch {
         setResult({
@@ -618,7 +638,6 @@ export default function CccdUploader({
 
   const isCameraMode = mode === "camera";
   const isManualMode = mode === "manual";
-  const showManualTab = !isMedical;
   const canManualSubmit = /^\d{12}$/.test(manualCccd.trim());
   const showSuccessStatus = Boolean(result?.success) && scanPaused;
   const successLabel = isMedical
@@ -659,10 +678,7 @@ export default function CccdUploader({
         <div
           role="tablist"
           aria-label="Cách nhập ảnh CCCD"
-          className={cn(
-            "bg-muted/50 grid gap-1 rounded-lg p-1",
-            showManualTab ? "grid-cols-3" : "grid-cols-2",
-          )}
+          className="bg-muted/50 grid grid-cols-3 gap-1 rounded-lg p-1"
         >
           <Button
             type="button"
@@ -690,21 +706,19 @@ export default function CccdUploader({
             <Camera aria-hidden />
             Camera
           </Button>
-          {showManualTab ? (
-            <Button
-              type="button"
-              role="tab"
-              aria-selected={isManualMode}
-              variant={isManualMode ? "secondary" : "ghost"}
-              size="sm"
-              className="w-full"
-              disabled={loading}
-              onClick={() => switchMode("manual")}
-            >
-              <Keyboard aria-hidden />
-              Nhập tay
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            role="tab"
+            aria-selected={isManualMode}
+            variant={isManualMode ? "secondary" : "ghost"}
+            size="sm"
+            className="w-full"
+            disabled={loading}
+            onClick={() => switchMode("manual")}
+          >
+            <Keyboard aria-hidden />
+            Nhập tay
+          </Button>
         </div>
 
         {previewUrl && !isManualMode ? (
@@ -903,11 +917,13 @@ export default function CccdUploader({
               <Keyboard className="size-6" aria-hidden />
             </div>
             <p className="mt-3 text-sm font-medium">
-              Check-in thủ công khi camera gặp sự cố
+              {isMedical
+                ? "Tra cứu hồ sơ khám khi camera gặp sự cố"
+                : "Check-in thủ công khi camera gặp sự cố"}
             </p>
             <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
-              Nhập đúng 12 số CCCD in trên thẻ. Hệ thống chỉ check-in khi số
-              khớp duy nhất một hồ sơ đã duyệt trong chiến dịch đang chọn.
+              Nhập đúng 12 số CCCD in trên thẻ. Hệ thống chỉ mở đúng hồ sơ
+              khớp duy nhất trong chiến dịch đang chọn.
             </p>
           </div>
         ) : (
@@ -953,7 +969,11 @@ export default function CccdUploader({
 
         <div className="space-y-1.5">
           <Label htmlFor="manual-cccd" className="flex items-center gap-1 text-xs">
-            {isManualMode ? "Nhập số CCCD để check-in" : "Số CCCD (12 chữ số)"}
+            {isManualMode
+              ? isMedical
+                ? "Nhập số CCCD để mở hồ sơ khám"
+                : "Nhập số CCCD để check-in"
+              : "Số CCCD (12 chữ số)"}
             <InfoTooltip
               label={
                 isManualMode
@@ -1013,7 +1033,11 @@ export default function CccdUploader({
           {loading ? (
             <>
               <ScanLine className="animate-pulse" aria-hidden />
-              {isManualMode ? "Đang check-in..." : "Đang quét CCCD..."}
+              {isManualMode
+                ? isMedical
+                  ? "Đang mở hồ sơ..."
+                  : "Đang check-in..."
+                : "Đang quét CCCD..."}
             </>
           ) : (
             <>
@@ -1023,7 +1047,9 @@ export default function CccdUploader({
                 <ScanLine aria-hidden />
               )}
               {isManualMode
-                ? "Check-in thủ công"
+                ? isMedical
+                  ? "Mở hồ sơ khám"
+                  : "Check-in thủ công"
                 : isMedical
                   ? "Mở hồ sơ khám"
                   : "Check-in bằng CCCD"}

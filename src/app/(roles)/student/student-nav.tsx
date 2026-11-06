@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, HeartHandshake } from "lucide-react";
+import { ClipboardList, HeartHandshake, House } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
+  {
+    href: "/",
+    label: "Trang chủ",
+    icon: House,
+  },
   {
     href: "/student/register",
     label: "Đăng ký",

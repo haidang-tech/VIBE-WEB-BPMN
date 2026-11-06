@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import BloodCardList from "@/components/landing/BloodCardList";
 import DonationScheduleSection from "@/components/landing/DonationScheduleSection";
 import HeroSection from "@/components/landing/HeroSection";
@@ -18,15 +17,13 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await getSession();
-
-  // Người đã đăng nhập vẫn được đưa về đúng bảng điều khiển của mình.
-  if (session) {
-    redirect(ROLE_HOME[session.role]);
-  }
+  const portalHref = session ? ROLE_HOME[session.role] : null;
+  const portalLabel =
+    session?.role === "STUDENT" ? "Trang sinh viên" : "Bảng điều khiển";
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
+      <Navbar portalHref={portalHref} portalLabel={portalLabel} />
       <main className="flex-1">
         <HeroSection />
         <DonationScheduleSection />

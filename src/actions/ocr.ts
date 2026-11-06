@@ -811,6 +811,66 @@ const MEDICAL_LOOKUP_STATUSES = [
   "COMPLETED",
 ] as const;
 
+/** Phần lõi dùng chung cho tra cứu hồ sơ khám bằng OCR và nhập tay. */
+async function completeMedicalLookup(
+  session: AuthSession,
+  match: Extract<ResolvedUser, { type: "matched" }>,
+  method: "OCR" | "MANUAL",
+): Promise<MedicalLookupResult> {
+  const registration =
+    match.user.registrations.find(
+      (item) => item.status === "APPROVED" || item.status === "CHECKED_IN",
+    ) ??
+    match.user.registrations.find((item) => item.status === "ELIGIBLE") ??
+    match.user.registrations[0];
+
+  if (
+    !(MEDICAL_LOOKUP_STATUSES as readonly string[]).includes(
+      registration.status,
+    )
+  ) {
+    return {
+      success: false,
+      code:
+        registration.status === "PENDING"
+          ? "REGISTRATION_NOT_APPROVED"
+          : "REGISTRATION_BLOCKED",
+      message:
+        registration.status === "PENDING"
+          ? "Hồ sơ chưa được duyệt nên chưa thể khám sức khỏe."
+          : "Hồ sơ đã bị từ chối nên không thể khám sức khỏe.",
+    };
+  }
+
+  await writeAuditLog({
+    action: "MEDICAL_CCCD_LOOKUP",
+    userId: session.userId,
+    details: {
+      registrationId: registration.id,
+      campaignId: registration.campaignId,
+      role: session.role,
+      method,
+      cccdLast4: match.cccd.slice(-4),
+    },
+  });
+
+  return {
+    success: true,
+    code: "FOUND",
+    message: `Đã mở hồ sơ của ${match.user.name}.`,
+    data: {
+      registrationId: registration.id,
+      studentName: match.user.name,
+      studentEmail: match.user.email,
+      cccdMasked: maskCccd(match.cccd),
+      campaignId: registration.campaignId,
+      campaignName: registration.campaign.name,
+      status: registration.status,
+      checkInTime: registration.checkInTime?.toISOString() ?? null,
+    },
+  };
+}
+
 /**
  * Tra cứu hồ sơ theo CCCD cho nhân viên y tế.
  *
@@ -889,57 +949,7 @@ export async function lookupCccdForMedical(
       };
     }
 
-    const registration =
-      match.user.registrations.find(
-        (item) => item.status === "APPROVED" || item.status === "CHECKED_IN",
-      ) ??
-      match.user.registrations.find((item) => item.status === "ELIGIBLE") ??
-      match.user.registrations[0];
-
-    if (
-      !(MEDICAL_LOOKUP_STATUSES as readonly string[]).includes(
-        registration.status,
-      )
-    ) {
-      return {
-        success: false,
-        code:
-          registration.status === "PENDING"
-            ? "REGISTRATION_NOT_APPROVED"
-            : "REGISTRATION_BLOCKED",
-        message:
-          registration.status === "PENDING"
-            ? "Hồ sơ chưa được duyệt nên chưa thể khám sức khỏe."
-            : "Hồ sơ đã bị từ chối nên không thể khám sức khỏe.",
-      };
-    }
-
-    await writeAuditLog({
-      action: "MEDICAL_CCCD_LOOKUP",
-      userId: session.userId,
-      details: {
-        registrationId: registration.id,
-        campaignId: registration.campaignId,
-        role: session.role,
-        cccdLast4: match.cccd.slice(-4),
-      },
-    });
-
-    return {
-      success: true,
-      code: "FOUND",
-      message: `Đã mở hồ sơ của ${match.user.name}.`,
-      data: {
-        registrationId: registration.id,
-        studentName: match.user.name,
-        studentEmail: match.user.email,
-        cccdMasked: maskCccd(match.cccd),
-        campaignId: registration.campaignId,
-        campaignName: registration.campaign.name,
-        status: registration.status,
-        checkInTime: registration.checkInTime?.toISOString() ?? null,
-      },
-    };
+    return completeMedicalLookup(session, match, "OCR");
   } catch (error) {
     console.error("[lookupCccdForMedical] Lỗi:", error);
 
@@ -947,6 +957,102 @@ export async function lookupCccdForMedical(
       success: false,
       code: "INTERNAL_ERROR",
       message: "Không thể tra cứu hồ sơ từ ảnh CCCD. Vui lòng thử lại sau.",
+    };
+  }
+}
+
+/**
+ * Tra cứu hồ sơ khám bằng cách nhập tay 12 số CCCD.
+ *
+ * Dùng khi camera / OCR của khu vực y tế gặp sự cố. Action không check-in và
+ * không đổi trạng thái hồ sơ; chỉ mở đúng hồ sơ để nhân viên nhập chỉ số khám.
+ */
+export async function lookupCccdForMedicalManual(input: {
+  campaignId: string;
+  cccd: string;
+}): Promise<MedicalLookupResult> {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return {
+        success: false,
+        code: "UNAUTHENTICATED",
+        message: "Bạn cần đăng nhập để tra cứu hồ sơ khám.",
+      };
+    }
+
+    if (session.role !== "MEDICAL") {
+      return {
+        success: false,
+        code: "FORBIDDEN",
+        message: "Chỉ nhân viên y tế mới có quyền tra cứu hồ sơ khám.",
+      };
+    }
+
+    const parsed = manualCheckInSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        code: "INVALID_CCCD",
+        message:
+          parsed.error.issues[0]?.message ??
+          "Số CCCD phải gồm đúng 12 chữ số.",
+      };
+    }
+
+    const { campaignId, cccd } = parsed.data;
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true },
+    });
+
+    if (!campaign) {
+      return {
+        success: false,
+        code: "CAMPAIGN_NOT_FOUND",
+        message: "Không tìm thấy chiến dịch.",
+      };
+    }
+
+    const match = await resolveUser(cccd, [], campaignId);
+
+    if (match.type === "not_found") {
+      return {
+        success: false,
+        code: "CCCD_NOT_FOUND",
+        message:
+          "Không tìm thấy sinh viên khớp với số CCCD đã nhập. Vui lòng kiểm tra lại số trên thẻ hoặc hồ sơ.",
+      };
+    }
+
+    if (match.type === "no_registration") {
+      return {
+        success: false,
+        code: "REGISTRATION_NOT_FOUND",
+        message: "Sinh viên này chưa đăng ký chiến dịch đang chọn.",
+      };
+    }
+
+    if (match.type === "ambiguous") {
+      return {
+        success: false,
+        code: "AMBIGUOUS_CCCD",
+        message:
+          "Số CCCD khớp nhiều hồ sơ. Vui lòng kiểm tra lại hoặc dùng ảnh CCCD.",
+      };
+    }
+
+    return completeMedicalLookup(session, match, "MANUAL");
+  } catch (error) {
+    console.error("[lookupCccdForMedicalManual] Lỗi:", error);
+
+    return {
+      success: false,
+      code: "INTERNAL_ERROR",
+      message: "Không thể tra cứu hồ sơ khám. Vui lòng thử lại sau.",
     };
   }
 }

@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BOOKING_HREF } from "./constants";
 
+type NavbarProps = {
+  /** Đích quay lại bảng điều khiển khi người dùng đã đăng nhập. */
+  portalHref?: string | null;
+  portalLabel?: string;
+};
+
 const NAV_LINKS = [
   { href: "/", label: "Trang chủ" },
   { href: "#lich-hien-mau", label: "Lịch hiến máu" },
@@ -16,7 +22,10 @@ const NAV_LINKS = [
   { href: "#ve-chung-toi", label: "Về chúng tôi" },
 ] as const;
 
-export default function Navbar() {
+export default function Navbar({
+  portalHref = null,
+  portalLabel = "Vào trang của tôi",
+}: NavbarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -105,12 +114,21 @@ export default function Navbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          <Link
-            href="/login"
-            className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 lg:inline-flex dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            Đăng nhập
-          </Link>
+          {portalHref ? (
+            <Link
+              href={portalHref}
+              className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 hover:text-red-800 lg:inline-flex dark:text-red-300 dark:hover:bg-red-500/10 dark:hover:text-red-200"
+            >
+              {portalLabel}
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 lg:inline-flex dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+            >
+              Đăng nhập
+            </Link>
+          )}
 
           <ThemeToggle className="hidden sm:inline-flex" />
 
@@ -174,13 +192,23 @@ export default function Navbar() {
             })}
 
             <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
-              >
-                Đăng nhập
-              </Link>
+              {portalHref ? (
+                <Link
+                  href={portalHref}
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
+                >
+                  {portalLabel}
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
+                >
+                  Đăng nhập
+                </Link>
+              )}
               <ThemeToggle />
             </div>
           </nav>

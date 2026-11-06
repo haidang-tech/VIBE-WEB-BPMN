@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +32,10 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { screenNoteForStudent } from "@/actions/ai";
+import {
+  previewAiScheduling,
+  type AiSchedulingPreviewData,
+} from "@/actions/ai";
 import { validateProfile } from "@/actions/blood-donation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +58,7 @@ import {
   MIN_WEIGHT_KG,
   evaluateProfileRules,
 } from "@/lib/donation-rules";
-import type { NoteRiskLevel, NoteScreening } from "@/lib/ai-screening";
+import type { NoteRiskLevel } from "@/lib/ai-screening";
 import {
   DONATION_SLOTS,
   calculateAge,
@@ -217,6 +220,12 @@ const NOTE_SCREENING_TONE: Record<
   },
 };
 
+const SLOT_LOAD_META = {
+  under: { bar: "bg-success", label: "còn chỗ" },
+  balanced: { bar: "bg-primary", label: "vừa chỉ tiêu" },
+  over: { bar: "bg-destructive", label: "quá tải" },
+} as const;
+
 function FieldError({ field, message }: { field: string; message?: string }) {
   if (!message) return null;
 
@@ -331,14 +340,22 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
   const [step, setStep] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
-  const [noteScreening, setNoteScreening] = useState<NoteScreening | null>(
+  const [aiPreview, setAiPreview] = useState<AiSchedulingPreviewData | null>(
     null,
   );
-  const [noteScreeningLoading, setNoteScreeningLoading] = useState(false);
-  const [noteScreeningError, setNoteScreeningError] = useState<string | null>(
+  const [aiPreviewLoading, setAiPreviewLoading] = useState(false);
+  const [aiPreviewError, setAiPreviewError] = useState<string | null>(null);
+  /** Chữ ký dữ liệu (chiến dịch + khung giờ + ghi chú) của lần phân tích gần nhất. */
+  const [aiPreviewSignature, setAiPreviewSignature] = useState<string | null>(
     null,
   );
-  const [screenedNote, setScreenedNote] = useState<string | null>(null);
+  const aiPreviewRequestRef = useRef(0);
+  const aiBlockedNotifiedRef = useRef(false);
+  const aiInputRef = useRef({
+    campaignId: "",
+    preferredSlots: [] as string[],
+    note: "",
+  });
 
   const firstAvailableCampaign =
     campaigns.find(
@@ -402,13 +419,28 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
   }, [dateOfBirth]);
 
   const noteValue = typeof values.note === "string" ? values.note : "";
-  const noteScreeningStale =
-    noteScreening !== null && screenedNote !== noteValue.trim();
-  const noteBlocked =
-    noteScreening?.level === "blocked" && !noteScreeningStale;
-  const noteTone = noteScreening
-    ? NOTE_SCREENING_TONE[noteScreening.level]
+  const preferredSlotValues = Array.isArray(values.preferredSlots)
+    ? values.preferredSlots
+    : [];
+  /** Chữ ký dữ liệu hiện tại; đổi bất kỳ thành phần nào là AI phân tích lại. */
+  const aiPreviewSignatureInput =
+    campaignId && preferredSlotValues.length > 0
+      ? `${campaignId}::${[...preferredSlotValues].sort().join("|")}::${noteValue.trim()}`
+      : null;
+  const aiPreviewFresh =
+    aiPreview !== null &&
+    aiPreviewSignatureInput !== null &&
+    aiPreviewSignature === aiPreviewSignatureInput;
+  const aiBlocked = aiPreviewFresh && aiPreview?.blocked === true;
+  const noteTone = aiPreview?.noteScreening
+    ? NOTE_SCREENING_TONE[aiPreview.noteScreening.level]
     : null;
+
+  aiInputRef.current = {
+    campaignId,
+    preferredSlots: [...preferredSlotValues],
+    note: noteValue,
+  };
 
   const weightValue =
     typeof weightRaw === "number" ? weightRaw : Number(weightRaw);
@@ -459,39 +491,87 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
     return () => window.clearTimeout(timer);
   }, [celebrate]);
 
-  async function reviewNote() {
-    const trimmed = noteValue.trim();
-
-    if (!trimmed) {
-      toast({
-        tone: "info",
-        title: "Chưa có ghi chú",
-        description:
-          "Hãy nhập ghi chú sức khỏe trước khi nhờ AI rà soát.",
-      });
+  // Tự động nhờ AI xếp khung giờ + rà soát ghi chú ngay tại bước chọn lịch.
+  useEffect(() => {
+    if (!aiPreviewSignatureInput) {
+      aiPreviewRequestRef.current += 1;
+      setAiPreview(null);
+      setAiPreviewSignature(null);
+      setAiPreviewError(null);
+      setAiPreviewLoading(false);
       return;
     }
 
-    setNoteScreeningLoading(true);
-    setNoteScreeningError(null);
+    if (aiPreviewSignatureInput === aiPreviewSignature) return;
 
-    try {
-      const result = await screenNoteForStudent(trimmed);
+    const requestId = ++aiPreviewRequestRef.current;
+    setAiPreviewLoading(true);
+    setAiPreviewError(null);
 
-      if (result.success && result.data) {
-        setNoteScreening(result.data);
-        setScreenedNote(trimmed);
-      } else {
-        setNoteScreeningError(result.message);
+    const timer = window.setTimeout(async () => {
+      const input = aiInputRef.current;
+
+      try {
+        const result = await previewAiScheduling({
+          campaignId: input.campaignId,
+          preferredSlots: input.preferredSlots,
+          note: input.note,
+        });
+
+        if (aiPreviewRequestRef.current !== requestId) return;
+
+        if (result.success && result.data) {
+          setAiPreview(result.data);
+        } else {
+          setAiPreview(null);
+          setAiPreviewError(result.message);
+        }
+
+        // Ghi nhận chữ ký dù thành công hay lỗi để không gọi lặp vô hạn.
+        setAiPreviewSignature(aiPreviewSignatureInput);
+      } catch {
+        if (aiPreviewRequestRef.current !== requestId) return;
+
+        setAiPreview(null);
+        setAiPreviewError(
+          "Không thể kết nối dịch vụ AI. Vui lòng kiểm tra mạng và thử lại.",
+        );
+        setAiPreviewSignature(aiPreviewSignatureInput);
+      } finally {
+        if (aiPreviewRequestRef.current === requestId) {
+          setAiPreviewLoading(false);
+        }
       }
-    } catch {
-      setNoteScreeningError(
-        "Không thể kết nối dịch vụ rà soát. Vui lòng kiểm tra mạng và thử lại.",
-      );
-    } finally {
-      setNoteScreeningLoading(false);
-    }
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [aiPreviewSignatureInput, aiPreviewSignature]);
+
+  function rerunAiPreview() {
+    if (!aiPreviewSignatureInput) return;
+    aiPreviewRequestRef.current += 1;
+    setAiPreviewError(null);
+    setAiPreviewSignature(null);
   }
+
+  // Thông báo ngay khi AI phát hiện ghi chú có dấu hiệu chưa đủ điều kiện.
+  useEffect(() => {
+    if (!aiBlocked) {
+      aiBlockedNotifiedRef.current = false;
+      return;
+    }
+
+    if (aiBlockedNotifiedRef.current) return;
+
+    aiBlockedNotifiedRef.current = true;
+    toast({
+      tone: "warning",
+      title: "Ghi chú cần được tư vấn y tế",
+      description:
+        aiPreview?.noteScreening?.summary ??
+        "AI phát hiện thông tin có thể khiến bạn chưa đủ điều kiện hiến máu.",
+    });
+  }, [aiBlocked, aiPreview, toast]);
 
   async function goNext() {
     const valid = await trigger(STEP_FIELDS[step], { shouldFocus: true });
@@ -1338,7 +1418,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                     <FieldError field="note" message={errors.note?.message} />
                   </div>
 
-                  {/* --- AI rà soát ghi chú sức khỏe ----------------- */}
+                  {/* --- AI xếp lịch & rà soát ghi chú ------------------ */}
                   <div
                     className={cn(
                       "rounded-xl border p-4 transition-colors",
@@ -1357,7 +1437,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                               : "bg-primary/10 text-primary",
                           )}
                         >
-                          {noteScreening?.level === "blocked" ? (
+                          {aiBlocked ? (
                             <ShieldAlert className="size-4" aria-hidden />
                           ) : (
                             <Sparkles className="size-4" aria-hidden />
@@ -1365,19 +1445,19 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         </span>
                         <div>
                           <p className="text-sm font-semibold">
-                            AI rà soát ghi chú sức khỏe
+                            AI xếp lịch &amp; rà soát ghi chú
                           </p>
                           <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
-                            Kiểm tra tiền sử bệnh lý, thuốc đang dùng hoặc sự
-                            cố sức khỏe có thể khiến bạn chưa nên hiến máu hôm
-                            nay.
+                            Tự chọn khung ít tải nhất trong các khung bạn tích
+                            và đọc Ghi chú thêm để cảnh báo sớm vấn đề sức
+                            khỏe.
                           </p>
                         </div>
                       </div>
 
-                      {noteScreening ? (
+                      {aiPreviewFresh && aiPreview?.noteScreening ? (
                         <Badge variant={noteTone?.badge ?? "neutral"}>
-                          {noteScreening.label}
+                          {aiPreview.noteScreening.label}
                         </Badge>
                       ) : null}
                     </div>
@@ -1387,65 +1467,164 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={reviewNote}
-                        disabled={noteScreeningLoading || submitting}
+                        onClick={rerunAiPreview}
+                        disabled={
+                          aiPreviewLoading ||
+                          submitting ||
+                          !aiPreviewSignatureInput
+                        }
                       >
-                        {noteScreeningLoading ? (
+                        {aiPreviewLoading ? (
                           <LoaderCircle className="animate-spin" aria-hidden />
                         ) : (
                           <Sparkles aria-hidden />
                         )}
-                        {noteScreeningLoading
-                          ? "Đang rà soát..."
-                          : "Nhờ AI rà soát"}
+                        {aiPreviewLoading
+                          ? "Đang phân tích..."
+                          : "Phân tích lại"}
                       </Button>
                       <span className="text-muted-foreground text-xs">
                         Không thay thế kết luận của nhân viên y tế.
                       </span>
                     </div>
 
-                    {noteScreeningError ? (
-                      <p role="alert" className="text-destructive mt-3 text-xs">
-                        {noteScreeningError}
+                    {!aiPreviewSignatureInput ? (
+                      <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+                        Chọn chiến dịch và ít nhất một khung giờ để AI xếp lịch
+                        và rà soát ghi chú.
                       </p>
                     ) : null}
 
-                    {noteScreening ? (
-                      <div className="mt-3 space-y-2">
-                        {noteScreeningStale ? (
-                          <p className="text-warning text-xs font-medium">
-                            Ghi chú đã thay đổi sau lần rà soát trước. Hãy nhờ
-                            AI rà soát lại.
+                    {aiPreviewError ? (
+                      <p role="alert" className="text-destructive mt-3 text-xs">
+                        {aiPreviewError}
+                      </p>
+                    ) : null}
+
+                    {aiPreviewLoading && !aiPreviewFresh ? (
+                      <p className="text-muted-foreground mt-3 flex items-center gap-2 text-xs">
+                        <LoaderCircle
+                          className="size-3.5 animate-spin"
+                          aria-hidden
+                        />
+                        AI đang cân bằng tải các khung giờ bạn đã chọn...
+                      </p>
+                    ) : null}
+
+                    {aiPreviewFresh && aiPreview ? (
+                      <div className="mt-3 space-y-4">
+                        <div className="border-primary/30 bg-background/60 rounded-lg border p-3">
+                          <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+                            Khung giờ AI đề xuất
+                          </p>
+                          <p className="text-primary mt-0.5 flex items-center gap-1.5 text-base font-semibold">
+                            <Clock3 className="size-4" aria-hidden />
+                            {aiPreview.suggestedSlot ??
+                              "Chưa xác định được khung phù hợp"}
+                          </p>
+                          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                            {aiPreview.message ||
+                              "Các khung bạn chọn đang cân bằng tải, giữ nguyên lựa chọn."}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium">
+                            Tải hiện tại của các khung bạn chọn
+                          </p>
+                          {aiPreview.slotLoads.map((load) => {
+                            const meta =
+                              SLOT_LOAD_META[
+                                load.status as keyof typeof SLOT_LOAD_META
+                              ];
+                            const percent = Math.min(
+                              100,
+                              Math.round(load.utilization * 100),
+                            );
+
+                            return (
+                              <div key={load.slot} className="space-y-1">
+                                <div className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="flex items-center gap-1.5 font-medium">
+                                    {load.slot}
+                                    {load.slot === aiPreview.suggestedSlot ? (
+                                      <Badge variant="secondary">
+                                        Đề xuất
+                                      </Badge>
+                                    ) : null}
+                                  </span>
+                                  <span className="text-muted-foreground tabular-nums">
+                                    {load.count}/{load.target} suất ·{" "}
+                                    {meta.label}
+                                  </span>
+                                </div>
+                                <div
+                                  className="bg-muted h-1.5 overflow-hidden rounded-full"
+                                  role="progressbar"
+                                  aria-valuemin={0}
+                                  aria-valuemax={100}
+                                  aria-valuenow={percent}
+                                  aria-label={`Tải khung ${load.slot}`}
+                                >
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full transition-all",
+                                      meta.bar,
+                                    )}
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {aiPreview.noteScreening ? (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">
+                              Kết quả rà soát Ghi chú thêm
+                            </p>
+                            <p className="text-sm">
+                              {aiPreview.noteScreening.summary}
+                            </p>
+
+                            {aiPreview.noteScreening.reasons.length > 0 ? (
+                              <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed">
+                                {aiPreview.noteScreening.reasons.map(
+                                  (reason) => (
+                                    <li key={reason}>{reason}</li>
+                                  ),
+                                )}
+                              </ul>
+                            ) : null}
+
+                            <p className="text-muted-foreground text-xs leading-relaxed">
+                              {aiPreview.noteScreening.advice}
+                            </p>
+
+                            <p className="text-muted-foreground text-[11px]">
+                              Nguồn:{" "}
+                              {aiPreview.noteScreening.provider === "hybrid"
+                                ? "AI + quy tắc y tế nội bộ"
+                                : "Quy tắc y tế nội bộ"}{" "}
+                              · Độ tin cậy{" "}
+                              {Math.round(
+                                aiPreview.noteScreening.confidence * 100,
+                              )}
+                              %
+                            </p>
+                          </div>
+                        ) : noteValue.trim() === "" ? (
+                          <p className="text-muted-foreground text-xs leading-relaxed">
+                            Thêm thông tin vào Ghi chú thêm để AI kiểm tra tiền
+                            sử bệnh lý, thuốc đang dùng hoặc sự cố sức khỏe.
                           </p>
                         ) : null}
-
-                        <p className="text-sm">{noteScreening.summary}</p>
-
-                        {noteScreening.reasons.length > 0 ? (
-                          <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed">
-                            {noteScreening.reasons.map((reason) => (
-                              <li key={reason}>{reason}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-
-                        <p className="text-muted-foreground text-xs leading-relaxed">
-                          {noteScreening.advice}
-                        </p>
-
-                        <p className="text-muted-foreground text-[11px]">
-                          Nguồn:{" "}
-                          {noteScreening.provider === "hybrid"
-                            ? "AI + quy tắc y tế nội bộ"
-                            : "Quy tắc y tế nội bộ"}{" "}
-                          · Độ tin cậy{" "}
-                          {Math.round(noteScreening.confidence * 100)}%
-                        </p>
                       </div>
                     ) : null}
                   </div>
 
-                  {noteBlocked ? (
+                  {aiBlocked ? (
                     <Alert variant="destructive">
                       <ShieldAlert />
                       <AlertTitle>Ghi chú cần được tư vấn y tế</AlertTitle>
@@ -1579,7 +1758,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       type="submit"
                       size="lg"
                       disabled={
-                        submitting || !hasAvailableCampaign || noteBlocked
+                        submitting || !hasAvailableCampaign || aiBlocked
                       }
                       className="sm:min-w-44"
                     >
@@ -1603,7 +1782,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                 </p>
               ) : null}
 
-              {noteBlocked ? (
+              {aiBlocked ? (
                 <p className="text-destructive text-sm">
                   Hồ sơ chưa thể gửi vì ghi chú sức khỏe có dấu hiệu chưa đủ
                   điều kiện hiến máu. Hãy chỉnh sửa ghi chú hoặc liên hệ ban tổ

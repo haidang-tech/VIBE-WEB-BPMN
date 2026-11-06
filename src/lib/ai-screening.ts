@@ -359,6 +359,31 @@ function redactSensitive(value: string): string {
     .replace(/\b\d{9,12}\b/g, "[số]");
 }
 
+/** Trích JSON từ nội dung mô hình (một số mô hình bọc trong ```json ... ```). */
+function parseModelJson(content: string): unknown {
+  const trimmed = content.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+
+  try {
+    return JSON.parse(unfenced);
+  } catch {
+    const start = unfenced.indexOf("{");
+    const end = unfenced.lastIndexOf("}");
+
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(unfenced.slice(start, end + 1));
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+}
+
 async function screenWithExternalAi(
   note: string,
 ): Promise<NoteScreening | null> {
@@ -407,7 +432,12 @@ async function screenWithExternalAi(
       signal: controller.signal,
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn(
+        `[ai-screening] Dịch vụ AI trả về HTTP ${response.status}; dùng quy tắc nội bộ.`,
+      );
+      return null;
+    }
 
     const payload: unknown = await response.json();
     const content = (payload as {
@@ -416,7 +446,7 @@ async function screenWithExternalAi(
 
     if (typeof content !== "string" || content.trim() === "") return null;
 
-    const parsedJson: unknown = JSON.parse(content);
+    const parsedJson = parseModelJson(content);
     const parsed = externalScreeningSchema.safeParse(parsedJson);
 
     if (!parsed.success) return null;

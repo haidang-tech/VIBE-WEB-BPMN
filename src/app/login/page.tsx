@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   Card,
@@ -81,6 +82,16 @@ export default async function LoginPage({
             <LoginForm nextPath={nextPath} />
           </CardContent>
         </Card>
+
+        <div className="mt-4 text-center">
+          <Link
+            href="/"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Về trang chủ
+          </Link>
+        </div>
       </div>
     </main>
   );
