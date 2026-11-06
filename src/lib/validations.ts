@@ -177,7 +177,8 @@ export const registerSchema = z
       .trim()
       .min(2, "Họ tên tối thiểu 2 ký tự")
       .max(100, "Họ tên tối đa 100 ký tự"),
-    email: emailSchema,
+    // Tài khoản sinh viên chỉ dùng email nội bộ DUE, đồng bộ với form đăng ký hiến máu.
+    email: studentEmailSchema,
     // Dùng chung policy với tài khoản nội bộ: tối thiểu 8 ký tự + độ phức tạp.
     password: passwordPolicySchema,
     confirmPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu"),

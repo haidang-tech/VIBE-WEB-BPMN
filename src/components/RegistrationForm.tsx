@@ -721,7 +721,9 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
               ? "Khung giờ đã đủ tải"
               : result.code === "STUDENT_CODE_IN_USE"
                 ? "MSSV đã được sử dụng"
-                : "Không thể gửi hồ sơ";
+                : result.code === "EMAIL_IN_USE"
+                  ? "Email đã được sử dụng"
+                  : "Không thể gửi hồ sơ";
 
         setServerState({
           tone: "destructive",
@@ -1047,7 +1049,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         Email sinh viên{" "}
                         <span className="text-destructive">*</span>
                         <InfoTooltip
-                          label="Email gắn với tài khoản và bắt buộc có đuôi @due.edu.vn."
+                          label="Email sinh viên bắt buộc có đuôi @due.edu.vn. Bạn có thể sửa lại email liên hệ cho hồ sơ này."
                           side="top"
                         />
                       </Label>
@@ -1055,8 +1057,8 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         id="email"
                         type="email"
                         autoComplete="email"
-                        readOnly
-                        className="opacity-80"
+                        inputMode="email"
+                        placeholder="ten.sv@due.edu.vn"
                         aria-invalid={Boolean(errors.email)}
                         aria-describedby={
                           errors.email ? FIELD_ERROR_ID("email") : undefined

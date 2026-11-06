@@ -252,6 +252,9 @@ export default function RegisterForm() {
               {...register("email")}
             />
           </div>
+          <p className="text-muted-foreground text-xs">
+            Chỉ chấp nhận email sinh viên có đuôi @due.edu.vn.
+          </p>
           <FieldError field="email" message={errors.email?.message} />
         </div>
 

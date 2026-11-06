@@ -49,7 +49,8 @@ Form dùng `react-hook-form` + `zodResolver(donationRegistrationSchema)` với
 - Nếu submit thất bại, `onInvalid` tìm trường lỗi đầu tiên và nhảy về đúng bước chứa nó.
 - Lỗi từ server được map vào đúng field qua `setError`, có `aria-invalid` và
   `aria-describedby` cho trình đọc màn hình.
-- Email gắn với tài khoản nên chỉ đọc; CCCD đã lưu được giải mã ở server và cũng chỉ đọc.
+- Email sinh viên cho phép sửa lại khi đăng ký, bắt buộc đuôi `@due.edu.vn` và không
+  được trùng email của tài khoản khác; CCCD đã lưu được giải mã ở server và chỉ đọc.
 - MSSV lưu ở `User.studentCode` (unique); email bắt buộc đuôi `@due.edu.vn`.
 
 ### Quy tắc validate chính (`lib/validations.ts`)

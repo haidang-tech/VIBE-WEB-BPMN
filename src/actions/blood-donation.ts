@@ -300,6 +300,7 @@ export async function validateProfile(
       studentCode,
       className,
       faculty,
+      email,
       phone,
       cccd,
       dateOfBirth,
@@ -392,6 +393,21 @@ export async function validateProfile(
         code: "STUDENT_CODE_IN_USE",
         message: "MSSV này đã được sử dụng cho một tài khoản khác.",
         errors: { studentCode: "MSSV này đã được sử dụng" },
+      };
+    }
+
+    // Sinh viên có thể sửa lại email khi đăng ký, nhưng không được trùng tài khoản khác.
+    const emailOwner = await prisma.user.findFirst({
+      where: { email, NOT: { id: session.userId } },
+      select: { id: true },
+    });
+
+    if (emailOwner) {
+      return {
+        success: false,
+        code: "EMAIL_IN_USE",
+        message: "Email này đã được sử dụng cho một tài khoản khác.",
+        errors: { email: "Email này đã được sử dụng" },
       };
     }
 
@@ -498,11 +514,12 @@ export async function validateProfile(
         });
 
         // Lưu hồ sơ sinh viên + CCCD đã mã hóa.
-        // Email không ghi đè để tránh đổi danh tính tài khoản.
+        // Email đã được kiểm tra trùng và bắt buộc đuôi @due.edu.vn trước đó.
         await tx.user.update({
           where: { id: session.userId },
           data: {
             name: fullName,
+            email,
             studentCode,
             className,
             faculty,
@@ -623,6 +640,18 @@ export async function validateProfile(
     };
   } catch (error) {
     if (isPrismaError(error, "P2002")) {
+      // P2002 có thể đến từ unique email hoặc index chống trùng hồ sơ.
+      const target = JSON.stringify(error.meta?.target ?? "").toLowerCase();
+
+      if (target.includes("email")) {
+        return {
+          success: false,
+          code: "EMAIL_IN_USE",
+          message: "Email này đã được sử dụng cho một tài khoản khác.",
+          errors: { email: "Email này đã được sử dụng" },
+        };
+      }
+
       return {
         success: false,
         code: "ALREADY_REGISTERED",

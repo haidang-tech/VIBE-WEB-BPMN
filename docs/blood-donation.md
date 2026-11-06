@@ -175,5 +175,6 @@ AuditLog có đủ 4 action nghiệp vụ, CCCD lưu dạng mã hóa (hash 64 k�
   cùng campaign. DB partial index cũng chỉ phủ 3 status này.
 - Schema chưa có cột tuổi/cân nặng/điện thoại, nên `dateOfBirth`, `weightKg`, `phone`,
   `note` chỉ dùng để validate, không lưu. Cân nặng chính thức được lưu ở `HealthCheck`.
-- `validateProfile` không đổi email tài khoản (tránh chiếm tài khoản); họ tên và CCCD
-  được cập nhật.
+- `validateProfile` cho phép cập nhật email tài khoản khi sinh viên sửa lại trong form;
+  email phải có đuôi `@due.edu.vn` và không trùng tài khoản khác. Họ tên và CCCD
+  cũng được cập nhật.
