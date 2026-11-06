@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, Info } from "lucide-react";
+import { CalendarDays, Info, Lock } from "lucide-react";
 import RegistrationForm, {
   type CampaignOption,
 } from "@/components/RegistrationForm";
@@ -21,6 +21,8 @@ import {
   computeMaxSlots,
 } from "@/lib/donation-rules";
 import { prisma } from "@/lib/prisma";
+import { computeCapacityPerSlot } from "@/lib/slot-optimizer";
+import { DONATION_SLOTS } from "@/lib/validations";
 
 export const metadata: Metadata = {
   title: "Đăng ký hiến máu",
@@ -113,9 +115,32 @@ export default async function StudentRegisterPage() {
         })
       : [];
 
+  // Đếm riêng từng khung giờ để làm mờ khung đã đủ tải.
+  const slotCounts =
+    campaignIds.length > 0
+      ? await prisma.registration.groupBy({
+          by: ["campaignId", "slotTime"],
+          where: {
+            campaignId: { in: campaignIds },
+            status: { in: [...CAPACITY_CONSUMING_STATUSES] },
+          },
+          _count: { _all: true },
+        })
+      : [];
+
   const countByCampaign = new Map(
     counts.map((item) => [item.campaignId, item._count._all]),
   );
+
+  const slotCountByCampaign = new Map<string, Record<string, number>>();
+
+  for (const group of slotCounts) {
+    if (!group.slotTime) continue;
+
+    const bucket = slotCountByCampaign.get(group.campaignId) ?? {};
+    bucket[group.slotTime] = group._count._all;
+    slotCountByCampaign.set(group.campaignId, bucket);
+  }
 
   const blockedCampaignIds = new Set(
     activeRegistrations.map((registration) => registration.campaignId),
@@ -127,6 +152,11 @@ export default async function StudentRegisterPage() {
       Number(campaign.overbookRate),
     );
     const activeCount = countByCampaign.get(campaign.id) ?? 0;
+    const slotCapacity = computeCapacityPerSlot(
+      maxSlots,
+      DONATION_SLOTS.length,
+    );
+    const campaignSlotCounts = slotCountByCampaign.get(campaign.id) ?? {};
 
     return {
       id: campaign.id,
@@ -136,8 +166,16 @@ export default async function StudentRegisterPage() {
       maxSlots,
       remainingSlots: Math.max(0, maxSlots - activeCount),
       alreadyRegistered: blockedCampaignIds.has(campaign.id),
+      slotCapacity,
+      slotCounts: Object.fromEntries(
+        DONATION_SLOTS.map((slot) => [slot, campaignSlotCounts[slot] ?? 0]),
+      ),
     };
   });
+
+  const availableCampaigns = campaigns.filter(
+    (campaign) => campaign.remainingSlots > 0 && !campaign.alreadyRegistered,
+  );
 
   let ownCccd: string | null = null;
 
@@ -187,6 +225,25 @@ export default async function StudentRegisterPage() {
               <CalendarDays className="text-muted-foreground size-6" />
             </div>
             <CardTitle>Chưa có chiến dịch đang mở</CardTitle>
+          </CardHeader>
+        </Card>
+      ) : availableCampaigns.length === 0 ? (
+        <Card className="border-warning/40 bg-warning/5 mx-auto max-w-xl text-center">
+          <CardHeader>
+            <div className="bg-warning/15 text-warning mx-auto mb-2 grid size-12 place-items-center rounded-full">
+              <Lock className="size-6" aria-hidden />
+            </div>
+            <CardTitle>Đã đóng đăng ký</CardTitle>
+            <CardDescription>
+              Tất cả chiến dịch đang mở đã đủ chỉ tiêu tiếp nhận hoặc bạn đã có
+              hồ sơ hoạt động. Vui lòng theo dõi hồ sơ hiện tại hoặc quay lại
+              khi có chiến dịch mới.
+            </CardDescription>
+            <div className="mt-4">
+              <Button asChild variant="outline">
+                <Link href="/student/tracking">Xem hồ sơ của tôi</Link>
+              </Button>
+            </div>
           </CardHeader>
         </Card>
       ) : (

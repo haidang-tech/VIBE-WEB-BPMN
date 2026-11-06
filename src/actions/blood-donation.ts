@@ -16,7 +16,7 @@ import {
   parseBloodPressure,
 } from "@/lib/donation-rules";
 import { prisma } from "@/lib/prisma";
-import { pickOptimizedSlot } from "@/lib/slot-optimizer";
+import { pickOptimizedSlot, computeCapacityPerSlot } from "@/lib/slot-optimizer";
 import {
   DONATION_SLOTS,
   calculateAge,
@@ -254,6 +254,7 @@ type ValidateProfileOutcome =
   | { type: "campaign_not_found" }
   | { type: "duplicate"; registrationId: string }
   | { type: "full"; maxSlots: number; activeCount: number }
+  | { type: "slots_full" }
   | {
       type: "created";
       registrationId: string;
@@ -452,11 +453,28 @@ export async function validateProfile(
           }),
         );
 
+        const countsBySlot = Object.fromEntries(slotCounts);
+        const targetPerSlot = computeCapacityPerSlot(
+          maxSlots,
+          DONATION_SLOTS.length,
+        );
+
+        // Không nhận khung đã đủ tải: UI đã làm mờ các khung này, server kiểm
+        // tra lại để tránh request tự chế bỏ qua giao diện.
+        if (
+          targetPerSlot > 0 &&
+          preferredSlots.every(
+            (slot) => (countsBySlot[slot] ?? 0) >= targetPerSlot,
+          )
+        ) {
+          return { type: "slots_full" };
+        }
+
         const assignedSlot =
           pickOptimizedSlot(
             preferredSlots,
-            Object.fromEntries(slotCounts),
-            Math.max(1, Math.ceil(maxSlots / DONATION_SLOTS.length)),
+            countsBySlot,
+            targetPerSlot,
           ) ?? preferredSlots[0];
 
         const status = eligible ? "APPROVED" : "REJECTED";
@@ -534,6 +552,18 @@ export async function validateProfile(
         success: false,
         code: "CAMPAIGN_FULL",
         message: `Chiến dịch đã đủ chỉ tiêu (${outcome.activeCount}/${outcome.maxSlots} suất, đã gồm overbook).`,
+      };
+    }
+
+    if (outcome.type === "slots_full") {
+      return {
+        success: false,
+        code: "SLOTS_FULL",
+        message:
+          "Các khung giờ bạn chọn đã đủ tải. Vui lòng chọn khung giờ khác còn chỗ.",
+        errors: {
+          preferredSlots: "Các khung giờ đã chọn đã đủ tải",
+        },
       };
     }
 

@@ -75,6 +75,10 @@ export type CampaignOption = {
   maxSlots: number;
   /** Sinh viên đã có hồ sơ đang hoạt động ở chiến dịch này. */
   alreadyRegistered: boolean;
+  /** Chỉ tiêu tạm tính cho mỗi khung giờ. */
+  slotCapacity: number;
+  /** Số hồ sơ đang chiếm chỗ theo từng khung giờ. */
+  slotCounts: Record<string, number>;
 };
 
 export type RegistrationFormDefaults = {
@@ -370,6 +374,8 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
     watch,
     trigger,
     setError,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<RegistrationFormValues>({
     resolver: zodResolver(
@@ -406,6 +412,19 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
   const weightRaw = values.weightKg;
   const campaignId = values.campaignId;
   const selectedCampaign = campaigns.find((item) => item.id === campaignId);
+  const selectedCampaignClosed = Boolean(
+    selectedCampaign &&
+      (selectedCampaign.remainingSlots <= 0 ||
+        selectedCampaign.alreadyRegistered),
+  );
+  /** Khung đã đạt chỉ tiêu tạm tính thì làm mờ, không cho tích. */
+  const isSlotCrowded = (slot: string) =>
+    Boolean(
+      selectedCampaign &&
+        selectedCampaign.slotCapacity > 0 &&
+        (selectedCampaign.slotCounts[slot] ?? 0) >=
+          selectedCampaign.slotCapacity,
+    );
 
   const age = useMemo(() => {
     if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) return null;
@@ -424,7 +443,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
     : [];
   /** Chữ ký dữ liệu hiện tại; đổi bất kỳ thành phần nào là AI phân tích lại. */
   const aiPreviewSignatureInput =
-    campaignId && preferredSlotValues.length > 0
+    campaignId && !selectedCampaignClosed && preferredSlotValues.length > 0
       ? `${campaignId}::${[...preferredSlotValues].sort().join("|")}::${noteValue.trim()}`
       : null;
   const aiPreviewFresh =
@@ -490,6 +509,26 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
     const timer = window.setTimeout(() => setCelebrate(false), 3200);
     return () => window.clearTimeout(timer);
   }, [celebrate]);
+
+  // Đổi chiến dịch có thể khiến khung đã tích trước đó bị đầy ở chiến dịch mới.
+  useEffect(() => {
+    const campaign = campaigns.find((item) => item.id === campaignId);
+
+    if (!campaign || campaign.slotCapacity <= 0) return;
+
+    const currentSlots = getValues("preferredSlots") ?? [];
+    const allowedSlots = currentSlots.filter(
+      (slot) =>
+        (campaign.slotCounts[slot] ?? 0) < campaign.slotCapacity,
+    );
+
+    if (allowedSlots.length !== currentSlots.length) {
+      setValue("preferredSlots", allowedSlots, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  }, [campaignId, campaigns, getValues, setValue]);
 
   // Tự động nhờ AI xếp khung giờ + rà soát ghi chú ngay tại bước chọn lịch.
   useEffect(() => {
@@ -678,9 +717,11 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
         const title =
           result.code === "CAMPAIGN_FULL"
             ? "Chiến dịch đã đủ chỉ tiêu"
-            : result.code === "STUDENT_CODE_IN_USE"
-              ? "MSSV đã được sử dụng"
-              : "Không thể gửi hồ sơ";
+            : result.code === "SLOTS_FULL"
+              ? "Khung giờ đã đủ tải"
+              : result.code === "STUDENT_CODE_IN_USE"
+                ? "MSSV đã được sử dụng"
+                : "Không thể gửi hồ sơ";
 
         setServerState({
           tone: "destructive",
@@ -1345,7 +1386,7 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                         const suffix = campaign.alreadyRegistered
                           ? " — đã có hồ sơ"
                           : campaign.remainingSlots <= 0
-                            ? " — hết suất"
+                            ? " — đã đóng đăng ký"
                             : ` — còn ${campaign.remainingSlots} suất`;
 
                         return (
@@ -1363,6 +1404,17 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       field="campaignId"
                       message={errors.campaignId?.message}
                     />
+
+                    {selectedCampaignClosed ? (
+                      <Alert variant="warning">
+                        <Lock />
+                        <AlertTitle>Chiến dịch đã đóng đăng ký</AlertTitle>
+                        <AlertDescription>
+                          Chiến dịch này đã đủ chỉ tiêu tiếp nhận. Vui lòng chọn
+                          chiến dịch khác còn suất hoặc quay lại sau.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
                   </div>
 
                   <fieldset className="space-y-3">
@@ -1374,28 +1426,51 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       id="preferredSlots-help"
                       className="text-muted-foreground text-xs"
                     >
-                      Chọn một hoặc nhiều khung giờ.
+                      Chọn một hoặc nhiều khung giờ. Khung bị làm mờ đã đủ tải,
+                      vui lòng chọn khung khác.
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      {DONATION_SLOTS.map((slot) => (
-                        <label
-                          key={slot}
-                          className="border-input hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            value={slot}
-                            className="accent-primary size-4"
-                            aria-describedby="preferredSlots-help"
-                            {...register("preferredSlots")}
-                          />
-                          <Clock3
-                            className="text-muted-foreground size-4"
-                            aria-hidden
-                          />
-                          <span className="font-medium">{slot}</span>
-                        </label>
-                      ))}
+                      {DONATION_SLOTS.map((slot) => {
+                        const crowded = isSlotCrowded(slot);
+                        const used = selectedCampaign?.slotCounts[slot] ?? 0;
+                        const capacity = selectedCampaign?.slotCapacity ?? 0;
+
+                        return (
+                          <label
+                            key={slot}
+                            aria-disabled={crowded || undefined}
+                            className={cn(
+                              "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+                              crowded
+                                ? "border-border/60 bg-muted/40 text-muted-foreground cursor-not-allowed opacity-60"
+                                : "border-input hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 cursor-pointer",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              value={slot}
+                              disabled={crowded}
+                              className="accent-primary size-4 disabled:cursor-not-allowed"
+                              aria-describedby="preferredSlots-help"
+                              {...register("preferredSlots")}
+                            />
+                            <Clock3
+                              className="text-muted-foreground size-4"
+                              aria-hidden
+                            />
+                            <span className="font-medium">{slot}</span>
+                            <span className="ml-auto shrink-0 text-[11px] font-medium tabular-nums">
+                              {crowded ? (
+                                <Badge variant="neutral">Đã đầy</Badge>
+                              ) : capacity > 0 ? (
+                                <span className="text-muted-foreground">
+                                  {used}/{capacity}
+                                </span>
+                              ) : null}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                     <FieldError
                       field="preferredSlots"
@@ -1758,7 +1833,10 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                       type="submit"
                       size="lg"
                       disabled={
-                        submitting || !hasAvailableCampaign || aiBlocked
+                        submitting ||
+                        !hasAvailableCampaign ||
+                        selectedCampaignClosed ||
+                        aiBlocked
                       }
                       className="sm:min-w-44"
                     >
@@ -1779,6 +1857,13 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                 <p className="text-warning text-sm">
                   Hiện không còn chiến dịch nào nhận đăng ký mới. Vui lòng quay
                   lại sau.
+                </p>
+              ) : null}
+
+              {selectedCampaignClosed ? (
+                <p className="text-warning text-sm">
+                  Chiến dịch đang chọn đã đủ chỉ tiêu nên tạm đóng đăng ký. Hãy
+                  chọn chiến dịch khác còn suất.
                 </p>
               ) : null}
 
