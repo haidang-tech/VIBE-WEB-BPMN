@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getSession } from "@/lib/auth";
-import { ROLE_HOME } from "@/lib/rbac";
+import { defaultAfterLogin } from "@/lib/rbac";
 import {
   Card,
   CardContent,
@@ -24,7 +24,7 @@ export default async function RegisterPage() {
 
   // Đã đăng nhập thì không cần đăng ký nữa.
   if (session) {
-    redirect(ROLE_HOME[session.role]);
+    redirect(defaultAfterLogin(session.role));
   }
 
   return (

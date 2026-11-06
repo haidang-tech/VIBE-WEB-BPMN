@@ -35,6 +35,9 @@ POST /api/auth/login { email, password }
 
 - Thông báo lỗi luôn là **"Email hoặc mật khẩu không đúng"** cho cả hai trường hợp
   sai email / sai mật khẩu (không lộ email đã tồn tại).
+- Sau khi đăng nhập, sinh viên về trang chủ `/`; organizer/medical/admin về dashboard
+  của role. Nếu URL có `next` nội bộ hợp lệ (ví dụ nút **Đặt lịch** →
+  `/login?next=/student/register`) thì quay lại đúng trang đó.
 - JWT **không chứa email, họ tên hay CCCD**; chỉ có `sub` và `role` để giảm rò rỉ PII.
 - Token hết hạn sau `SESSION_TTL_SECONDS` (mặc định 28.800 giây = 8 giờ), được kiểm
   tra tự động bởi `jwtVerify` (issuer + audience + algorithm).

@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getSession } from "@/lib/auth";
-import { ROLE_HOME } from "@/lib/rbac";
+import { defaultAfterLogin } from "@/lib/rbac";
 import LoginForm from "./login-form";
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default async function LoginPage({
   const session = await getSession();
 
   if (session) {
-    redirect(ROLE_HOME[session.role]);
+    redirect(defaultAfterLogin(session.role));
   }
 
   const params = await searchParams;

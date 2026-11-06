@@ -2,7 +2,7 @@ import { compare } from "bcryptjs";
 import { NextResponse } from "next/server";
 import { writeAuditLogFromRequest } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { ROLE_HOME } from "@/lib/rbac";
+import { defaultAfterLogin } from "@/lib/rbac";
 import {
   AUTH_COOKIE,
   getAuthCookieOptions,
@@ -149,7 +149,7 @@ export async function POST(req: Request) {
         email: user.email,
         role: user.role,
       },
-      redirectTo: ROLE_HOME[user.role],
+      redirectTo: defaultAfterLogin(user.role),
     });
 
     response.cookies.set(AUTH_COOKIE, token, getAuthCookieOptions());

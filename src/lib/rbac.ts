@@ -7,13 +7,21 @@ export const ROLES = ["STUDENT", "ORGANIZER", "MEDICAL", "ADMIN"] as const;
 
 export type UserRole = (typeof ROLES)[number];
 
-/** Trang mặc định của từng role sau khi đăng nhập */
+/** Trang đích của từng role khi bấm vào cổng thông tin. */
 export const ROLE_HOME: Record<UserRole, string> = {
   STUDENT: "/student/register",
   ORGANIZER: "/organizer/dashboard",
   MEDICAL: "/medical/scan-id",
   ADMIN: "/admin/dashboard",
 };
+
+/**
+ * Trang mặc định sau khi đăng nhập thành công.
+ * Sinh viên về trang chủ; chỉ khi bấm "Đặt lịch" (có `next`) mới vào form đăng ký.
+ */
+export function defaultAfterLogin(role: UserRole): string {
+  return role === "STUDENT" ? "/" : ROLE_HOME[role];
+}
 
 /** Tiền tố route được phép của từng role */
 export const ROLE_PREFIX: Record<UserRole, string> = {

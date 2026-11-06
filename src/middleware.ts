@@ -5,6 +5,7 @@ import {
   type SessionPayload,
 } from "@/lib/jwt";
 import {
+  defaultAfterLogin,
   ROLE_HOME,
   canAccessPath,
   isPublicPath,
@@ -20,6 +21,13 @@ import {
  */
 
 const AUTH_PATHS = new Set(["/login", "/register"]);
+
+/** Chỉ nhận đường dẫn nội bộ để tránh open redirect. */
+function safeNextPath(value: string | null): string | null {
+  return value && value.startsWith("/") && !value.startsWith("//")
+    ? value
+    : null;
+}
 
 function nextWithSession(req: NextRequest, session: SessionPayload | null) {
   const headers = new Headers(req.headers);
@@ -169,9 +177,21 @@ export async function middleware(req: NextRequest) {
 
   // --- Route công khai -----------------------------------------------------
   if (isPublicPath(pathname)) {
-    // Đã đăng nhập mà vào /login => đưa về trang chủ của role.
+    // Đã đăng nhập mà vào /login hoặc /register => đưa về trang mặc định.
+    // Riêng /login?next=... (ví dụ nút "Đặt lịch") thì tôn trọng đích đến.
     if (session && AUTH_PATHS.has(pathname)) {
-      return NextResponse.redirect(new URL(ROLE_HOME[session.role], req.url));
+      const nextParam =
+        pathname === "/login"
+          ? safeNextPath(req.nextUrl.searchParams.get("next"))
+          : null;
+      const target =
+        nextParam &&
+        !AUTH_PATHS.has(nextParam) &&
+        canAccessPath(session.role, nextParam)
+          ? nextParam
+          : defaultAfterLogin(session.role);
+
+      return NextResponse.redirect(new URL(target, req.url));
     }
 
     return nextWithSession(req, session);

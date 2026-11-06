@@ -10,7 +10,7 @@ import {
   verifySessionToken,
   type SessionPayload,
 } from "./jwt";
-import { ROLE_HOME } from "./rbac";
+import { defaultAfterLogin } from "./rbac";
 
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
@@ -39,7 +39,7 @@ export async function requireRole(
   const session = await requireSession();
 
   if (session.role !== role) {
-    redirect(ROLE_HOME[session.role]);
+    redirect(defaultAfterLogin(session.role));
   }
 
   return session;
