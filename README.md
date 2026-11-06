@@ -171,7 +171,8 @@ Các bộ test hiện có trong `src/__tests__/`:
 
 | File test | Nội dung |
 |---|---|
-| `xorLogic.test.ts` | 3 cổng lọc nghiệp vụ (chặn đăng ký trùng, tuổi/cân nặng, lâm sàng) |
+| `xorLogic.test.ts` | Cổng đăng ký, duyệt hồ sơ, khám sức khỏe, chốt hiến máu và nhánh lỗi |
+| `validations.test.ts` | Schema dữ liệu, ngày tháng, khung giờ, chiến dịch, audit và helper |
 | `slotOptimizer.test.ts` | Thuật toán phân bổ khung giờ |
 | `cccdOcr.test.ts` | Parse kết quả OCR CCCD |
 | `aiScreening.test.ts` | Sàng lọc ghi chú sức khỏe bằng AI |

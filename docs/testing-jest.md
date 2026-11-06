@@ -1,16 +1,22 @@
 # Unit Test với Jest & Checklist bảo mật — Prompt 8
 
-Tài liệu này hướng dẫn cài đặt môi trường Jest cho Next.js App Router và cách
-chạy file test `src/__tests__/xorLogic.test.ts` để lấy minh chứng cho báo cáo.
+Tài liệu này mô tả bộ Jest cho Next.js App Router và cách chạy test để lấy
+minh chứng cho báo cáo.
 
 ## 1. Kết quả đạt được
 
 - Đã cài Jest + ts-jest cho dự án Next.js 15 (App Router).
-- File test: `src/__tests__/xorLogic.test.ts`.
-- 22 unit test, bao phủ 3 Server Action ở Prompt 3:
+- File nghiệp vụ: `src/__tests__/xorLogic.test.ts`.
+- 64 test trong file nghiệp vụ, bao phủ:
   - `checkCanRegister` — chặn đăng ký trùng, kiểm tra sức chứa/overbook.
   - `validateProfile` — rẽ nhánh tuổi `>= 18` và cân nặng `>= 45kg`.
   - `evaluateHealth` — rẽ nhánh sức khỏe đạt/không đạt.
+  - `finalizeDonation` — chốt ca hiến máu thành công hoặc ghi nhận sự cố.
+  - Nhánh lỗi xác thực, dữ liệu, CCCD/MSSV/email trùng, khung giờ đầy,
+    transaction conflict và lỗi DB.
+- `src/__tests__/validations.test.ts` kiểm tra schema ngày tháng, khung giờ,
+  tài khoản sinh viên, chiến dịch, audit và helper validation.
+- Toàn bộ 5 suite hiện có tổng cộng 117 test.
 - Test chạy độc lập, không cần PostgreSQL, không cần biến môi trường PII/JWT.
 
 ## 2. Cài đặt
@@ -104,6 +110,7 @@ nên cần override sang `commonjs`.
 
 ```
 src/__tests__/xorLogic.test.ts
+src/__tests__/validations.test.ts
 ```
 
 ### 3.1. Mock các phụ thuộc server
@@ -130,28 +137,31 @@ tính ổn định, không phụ thuộc ngày chạy thực tế.
 
 ### 3.2. Danh sách test
 
-**`checkCanRegister` (6 test)**
+**`checkCanRegister` (8 test)**
 
 - Cho phép đăng ký khi còn suất.
 - Chặn trùng khi đã có hồ sơ `PENDING/APPROVED/COMPLETED`.
 - Chặn khi chiến dịch đủ chỉ tiêu (đã gồm overbook).
 - Trả `CAMPAIGN_NOT_FOUND`.
 - Chặn kiểm tra hồ sơ của người khác (`FORBIDDEN`).
-- Yêu cầu đăng nhập (`UNAUTHENTICATED`).
+- Từ chối ID rỗng, yêu cầu đăng nhập và xử lý lỗi DB (`INTERNAL_ERROR`).
 
-**`validateProfile` (8 test)**
+**`validateProfile` (28 test)**
 
 - Tuổi `>= 18` và cân nặng `>= 45kg` → `APPROVED`, audit
   `REGISTRATION_APPROVED`.
 - Cân nặng `< 45kg` → `REJECTED`, audit `REGISTRATION_REJECTED`.
 - Tuổi `< 18` → `REJECTED`.
 - Thiếu cả tuổi và cân nặng → trả đủ 2 lý do.
-- Chặn đăng ký trùng trong transaction, không tạo hồ sơ mới.
-- Chặn khi chiến dịch đủ chỉ tiêu.
-- Chỉ role `STUDENT` được đăng ký.
-- Dữ liệu sai định dạng → `INVALID_INPUT` kèm lỗi từng field.
+- Chặn đăng ký trùng/hết suất/khung giờ đầy trong transaction.
+- Chặn tài khoản không tồn tại, CCCD/MSSV/email đã được dùng và ghi chú bị
+  đánh dấu cần hoãn; dùng summary nếu AI không trả reason.
+- Lưu ngày hiến máu gần nhất; kiểm tra các nhánh dự phòng khi kết quả tính tải
+  hoặc metadata lỗi unique không có giá trị.
+- Kiểm tra đăng nhập, role `STUDENT`, dữ liệu sai định dạng.
+- Xử lý unique constraint `P2002`, transaction conflict `P2034` và lỗi DB khác.
 
-**`evaluateHealth` (8 test)**
+**`evaluateHealth` (12 test)**
 
 - Sức khỏe đạt → `ELIGIBLE`, audit `HEALTH_CHECK_PASSED`.
 - Huyết áp ngoài ngưỡng → `HEALTH_CHECK_FAILED`, vẫn lưu kết quả.
@@ -159,8 +169,21 @@ tính ổn định, không phụ thuộc ngày chạy thực tế.
 - Hồ sơ `PENDING` → `INVALID_STATUS`.
 - Hồ sơ `CHECKED_IN` → được phép nhập kết quả.
 - Hồ sơ không tồn tại → `REGISTRATION_NOT_FOUND`.
-- Chỉ role `MEDICAL` được nhập kết quả.
-- Chỉ số sai định dạng → `INVALID_INPUT`.
+- Kiểm tra đăng nhập, role `MEDICAL`, chỉ số sai định dạng, transaction
+  conflict và lỗi DB.
+
+**`finalizeDonation` (8 test)**
+
+- `SUCCESS` → `COMPLETED`; `INCIDENT` → `HEALTH_CHECK_FAILED`.
+- Từ chối khi chưa đăng nhập, sai role, input sai, hồ sơ không tồn tại hoặc
+  trạng thái chưa `ELIGIBLE`.
+- Xử lý transaction conflict và lỗi DB.
+
+**`validations.test.ts` (12 test)** bao phủ schema/helper cho ngày, khung giờ,
+tài khoản đăng ký, chiến dịch, audit log và tính tuổi.
+
+**Các suite còn lại:** `slotOptimizer.test.ts` (11 test), `cccdOcr.test.ts`
+(21 test) và `aiScreening.test.ts` (9 test).
 
 ## 4. Cách chạy
 
@@ -179,19 +202,19 @@ Kết quả mong đợi:
 
 ```
 PASS src/__tests__/xorLogic.test.ts
-  checkCanRegister
-    √ ...
-  validateProfile
-    √ ...
-  evaluateHealth
-    √ ...
+PASS src/__tests__/validations.test.ts
+PASS src/__tests__/aiScreening.test.ts
+PASS src/__tests__/cccdOcr.test.ts
+PASS src/__tests__/slotOptimizer.test.ts
 
-Test Suites: 1 passed, 1 total
-Tests:       22 passed, 22 total
+Test Suites: 5 passed, 5 total
+Tests:       117 passed, 117 total
 ```
 
-Báo cáo coverage nằm ở `coverage/lcov-report/index.html` (đã được ignore trong
-`.gitignore`).
+Kết quả chạy gần nhất: 117/117 test pass; các file được cấu hình đo coverage
+đạt 100% statements, branches, functions và lines. Phạm vi đo gồm
+`blood-donation.ts`, `donation-rules.ts` và `validations.ts`. Báo cáo chi tiết nằm ở
+`coverage/lcov-report/index.html` (thư mục này được ignore trong `.gitignore`).
 
 ## 5. Lỗi thường gặp
 
