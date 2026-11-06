@@ -2,9 +2,13 @@ import type { RegStatus } from "@prisma/client";
 import {
   BellRing,
   CalendarClock,
+  CalendarHeart,
+  Cat,
   CheckCircle2,
   Clock3,
+  Droplet,
   MapPin,
+  Ticket,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +18,22 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   weekday: "long",
   day: "2-digit",
   month: "2-digit",
+  year: "numeric",
+  timeZone: "Asia/Ho_Chi_Minh",
+});
+
+const dayNumberFormatter = new Intl.DateTimeFormat("vi-VN", {
+  day: "2-digit",
+  timeZone: "Asia/Ho_Chi_Minh",
+});
+
+const weekdayFormatter = new Intl.DateTimeFormat("vi-VN", {
+  weekday: "long",
+  timeZone: "Asia/Ho_Chi_Minh",
+});
+
+const monthYearFormatter = new Intl.DateTimeFormat("vi-VN", {
+  month: "long",
   year: "numeric",
   timeZone: "Asia/Ho_Chi_Minh",
 });
@@ -60,6 +80,7 @@ type Props = {
   campaignName: string;
   campaignDate: Date;
   location: string;
+  slotTime?: string | null;
   checkInTime: Date | null;
   completedAt: Date | null;
 };
@@ -69,6 +90,7 @@ export default function DonationTimeNotice({
   campaignName,
   campaignDate,
   location,
+  slotTime,
   checkInTime,
   completedAt,
 }: Props) {
@@ -132,74 +154,170 @@ export default function DonationTimeNotice({
   }
 
   const completedTime = completedAt ?? checkInTime;
+  const accentColor = isCompleted ? "text-success" : "text-primary";
+  const accentBg = isCompleted ? "bg-success/[0.04]" : "bg-primary/[0.04]";
+  const accentBorder = isCompleted ? "border-success/40" : "border-primary/30";
 
   return (
     <Card
+      role="region"
+      aria-label="Thông báo thời gian hiến máu"
       className={cn(
-        "overflow-hidden border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card",
-        isCompleted && "border-success/40 from-success/10",
+        "relative gap-0 overflow-hidden rounded-2xl py-0 shadow-lg hover:translate-y-0",
+        accentBorder,
       )}
     >
-      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div
-            className={cn(
-              "bg-primary/10 text-primary grid size-11 shrink-0 place-items-center rounded-full",
-              isCompleted && "bg-success/15 text-success",
-            )}
-          >
-            {isCompleted ? (
-              <CheckCircle2 className="size-5" aria-hidden />
-            ) : (
-              <BellRing className="size-5" aria-hidden />
-            )}
-          </div>
+      {/* Dải màu trên cùng: điểm nhấn như thiệp mời */}
+      <div
+        aria-hidden
+        className={cn(
+          "h-1.5 w-full bg-gradient-to-r",
+          isCompleted
+            ? "from-success via-success/60 to-success/15"
+            : "from-primary via-primary/60 to-primary/15",
+        )}
+      />
 
-          <div className="min-w-0">
-            <p className="text-sm font-semibold">
-              {isCompleted
-                ? "Bạn đã hoàn thành hiến máu"
-                : "Thông báo thời gian hiến máu"}
-            </p>
-            <p className="mt-1 text-base font-semibold tracking-tight sm:text-lg">
-              {dateFormatter.format(campaignDate)}
-            </p>
-            <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="inline-flex items-center gap-1">
-                <Clock3 className="size-3.5" aria-hidden />
-                {timeFormatter.format(campaignDate)}
+      <CardContent className="relative p-0">
+        <div className="grid sm:grid-cols-[minmax(0,1fr)_13rem]">
+          {/* --- Nội dung chính của thiệp ---------------------------- */}
+          <div className="relative p-5 sm:p-6">
+            <Cat
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute -bottom-5 right-2 size-28 opacity-[0.06]",
+                accentColor,
+              )}
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                  isCompleted
+                    ? "bg-success/15 text-success"
+                    : "bg-primary/10 text-primary",
+                )}
+              >
+                <CalendarHeart className="size-3.5" aria-hidden />
+                {isCompleted ? "Hoàn thành hiến máu" : "Thư mời hiến máu"}
               </span>
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="size-3.5" aria-hidden />
-                {location}
-              </span>
+              <Badge variant={countdownVariant}>{countdownLabel}</Badge>
+            </div>
+
+            <h2 className="mt-3 text-xl font-bold tracking-tight sm:text-2xl">
+              {campaignName}
+            </h2>
+
+            <p className="mt-3 flex items-start gap-2 text-base font-semibold sm:text-lg">
+              <CalendarHeart
+                className={cn("mt-0.5 size-5 shrink-0", accentColor)}
+                aria-hidden
+              />
+              <time dateTime={campaignDate.toISOString()}>
+                {dateFormatter.format(campaignDate)}
+              </time>
             </p>
-            <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
+
+            <p className="text-muted-foreground mt-2 flex items-start gap-1.5 text-sm">
+              <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>{location}</span>
+            </p>
+
+            {slotTime ? (
+              <p className="border-primary/25 bg-primary/5 mt-3 inline-flex flex-wrap items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
+                <Ticket className={cn("size-4", accentColor)} aria-hidden />
+                <span className="text-muted-foreground">
+                  Khung giờ của bạn:
+                </span>
+                <strong className="font-semibold">{slotTime}</strong>
+              </p>
+            ) : null}
+
+            <p className="text-muted-foreground mt-4 max-w-prose text-sm leading-relaxed">
               {message}
             </p>
           </div>
-        </div>
 
-        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-          <Badge variant={countdownVariant}>{countdownLabel}</Badge>
+          {/* --- Cuống thiệp: ngày và giờ nổi bật -------------------- */}
+          <div
+            className={cn(
+              "relative flex items-center justify-between gap-4 border-t border-dashed p-5 sm:flex-col sm:items-start sm:justify-center sm:border-l sm:border-t-0",
+              accentBg,
+              isCompleted ? "border-success/30" : "border-primary/25",
+            )}
+          >
+            {/* Hai khía tròn tạo cảm giác vé/thiệp xé được */}
+            <span
+              aria-hidden
+              className="bg-background absolute -left-2.5 -top-2.5 hidden size-5 rounded-full sm:block"
+            />
+            <span
+              aria-hidden
+              className="bg-background absolute -bottom-2.5 -left-2.5 hidden size-5 rounded-full sm:block"
+            />
 
-          {hasCheckedIn && checkInTime ? (
-            <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-              <CalendarClock className="size-3.5" aria-hidden />
-              Check-in: {dateTimeFormatter.format(checkInTime)}
-            </span>
-          ) : null}
+            <div className="relative">
+              <p
+                className={cn(
+                  "text-[11px] font-semibold uppercase tracking-[0.18em]",
+                  isCompleted ? "text-success/80" : "text-primary/80",
+                )}
+              >
+                Ngày hiến máu
+              </p>
+              <p
+                className={cn(
+                  "relative z-10 mt-1 text-5xl font-black leading-none tracking-tight tabular-nums",
+                  accentColor,
+                )}
+              >
+                {dayNumberFormatter.format(campaignDate)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs font-medium">
+                {weekdayFormatter.format(campaignDate)} ·{" "}
+                {monthYearFormatter.format(campaignDate)}
+              </p>
+              <Droplet
+                aria-hidden
+                className={cn(
+                  "absolute -right-3 -top-3 size-20 opacity-10",
+                  accentColor,
+                )}
+              />
+            </div>
 
-          {isCompleted && completedTime ? (
-            <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-              <CheckCircle2 className="size-3.5" aria-hidden />
-              Hoàn thành: {dateTimeFormatter.format(completedTime)}
-            </span>
-          ) : null}
+            <div className="relative space-y-1.5 text-xs">
+              <p className="inline-flex items-center gap-1.5 font-semibold">
+                <Clock3
+                  className={cn("size-3.5", accentColor)}
+                  aria-hidden
+                />
+                {timeFormatter.format(campaignDate)}
+              </p>
 
-          <span className="text-muted-foreground max-w-48 truncate text-xs">
-            {campaignName}
-          </span>
+              {hasCheckedIn && checkInTime ? (
+                <p className="text-muted-foreground inline-flex items-center gap-1.5">
+                  <CalendarClock className="size-3.5" aria-hidden />
+                  Check-in: {dateTimeFormatter.format(checkInTime)}
+                </p>
+              ) : null}
+
+              {isCompleted && completedTime ? (
+                <p className="text-muted-foreground inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="size-3.5" aria-hidden />
+                  Hoàn thành: {dateTimeFormatter.format(completedTime)}
+                </p>
+              ) : null}
+
+              {!hasCheckedIn ? (
+                <p className="text-muted-foreground inline-flex items-center gap-1.5">
+                  <BellRing className="size-3.5" aria-hidden />
+                  Có mặt trước 15 phút
+                </p>
+              ) : null}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

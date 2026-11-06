@@ -154,6 +154,7 @@ export default async function StudentTrackingPage({
           campaignName={selected.campaign.name}
           campaignDate={selected.campaign.date}
           location={selected.campaign.location}
+          slotTime={selected.slotTime}
           checkInTime={selected.checkInTime}
           completedAt={selected.healthCheck?.updatedAt ?? null}
         />

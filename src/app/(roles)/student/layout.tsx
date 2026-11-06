@@ -32,6 +32,7 @@ export default async function StudentLayout({
       select: {
         id: true,
         status: true,
+        slotTime: true,
         campaign: {
           select: { name: true, date: true, location: true },
         },
@@ -46,6 +47,7 @@ export default async function StudentLayout({
         campaignDate: nextRegistration.campaign.date.toISOString(),
         campaignName: nextRegistration.campaign.name,
         location: nextRegistration.campaign.location,
+        slotTime: nextRegistration.slotTime,
       }
     : null;
 
