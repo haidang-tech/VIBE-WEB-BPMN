@@ -21,14 +21,18 @@ import {
   Clock3,
   HeartPulse,
   Info,
+  LoaderCircle,
   Lock,
   MapPin,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Ticket,
   UserRound,
   Users,
   XCircle,
 } from "lucide-react";
+import { screenNoteForStudent } from "@/actions/ai";
 import { validateProfile } from "@/actions/blood-donation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +55,7 @@ import {
   MIN_WEIGHT_KG,
   evaluateProfileRules,
 } from "@/lib/donation-rules";
+import type { NoteRiskLevel, NoteScreening } from "@/lib/ai-screening";
 import {
   DONATION_SLOTS,
   calculateAge,
@@ -187,6 +192,31 @@ const BLOOD_TYPE_LABELS: Record<string, string> = {
   O: "O",
 };
 
+const NOTE_SCREENING_TONE: Record<
+  NoteRiskLevel,
+  {
+    badge: "success" | "warning" | "destructive";
+    panel: string;
+    icon: string;
+  }
+> = {
+  clear: {
+    badge: "success",
+    panel: "border-success/30 bg-success/5",
+    icon: "text-success",
+  },
+  caution: {
+    badge: "warning",
+    panel: "border-warning/40 bg-warning/10",
+    icon: "text-warning",
+  },
+  blocked: {
+    badge: "destructive",
+    panel: "border-destructive/40 bg-destructive/5",
+    icon: "text-destructive",
+  },
+};
+
 function FieldError({ field, message }: { field: string; message?: string }) {
   if (!message) return null;
 
@@ -301,6 +331,14 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
   const [step, setStep] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  const [noteScreening, setNoteScreening] = useState<NoteScreening | null>(
+    null,
+  );
+  const [noteScreeningLoading, setNoteScreeningLoading] = useState(false);
+  const [noteScreeningError, setNoteScreeningError] = useState<string | null>(
+    null,
+  );
+  const [screenedNote, setScreenedNote] = useState<string | null>(null);
 
   const firstAvailableCampaign =
     campaigns.find(
@@ -363,6 +401,15 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
     }
   }, [dateOfBirth]);
 
+  const noteValue = typeof values.note === "string" ? values.note : "";
+  const noteScreeningStale =
+    noteScreening !== null && screenedNote !== noteValue.trim();
+  const noteBlocked =
+    noteScreening?.level === "blocked" && !noteScreeningStale;
+  const noteTone = noteScreening
+    ? NOTE_SCREENING_TONE[noteScreening.level]
+    : null;
+
   const weightValue =
     typeof weightRaw === "number" ? weightRaw : Number(weightRaw);
   const hasWeight =
@@ -411,6 +458,40 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
     const timer = window.setTimeout(() => setCelebrate(false), 3200);
     return () => window.clearTimeout(timer);
   }, [celebrate]);
+
+  async function reviewNote() {
+    const trimmed = noteValue.trim();
+
+    if (!trimmed) {
+      toast({
+        tone: "info",
+        title: "Chưa có ghi chú",
+        description:
+          "Hãy nhập ghi chú sức khỏe trước khi nhờ AI rà soát.",
+      });
+      return;
+    }
+
+    setNoteScreeningLoading(true);
+    setNoteScreeningError(null);
+
+    try {
+      const result = await screenNoteForStudent(trimmed);
+
+      if (result.success && result.data) {
+        setNoteScreening(result.data);
+        setScreenedNote(trimmed);
+      } else {
+        setNoteScreeningError(result.message);
+      }
+    } catch {
+      setNoteScreeningError(
+        "Không thể kết nối dịch vụ rà soát. Vui lòng kiểm tra mạng và thử lại.",
+      );
+    } finally {
+      setNoteScreeningLoading(false);
+    }
+  }
 
   async function goNext() {
     const valid = await trigger(STEP_FIELDS[step], { shouldFocus: true });
@@ -1257,6 +1338,126 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                     <FieldError field="note" message={errors.note?.message} />
                   </div>
 
+                  {/* --- AI rà soát ghi chú sức khỏe ----------------- */}
+                  <div
+                    className={cn(
+                      "rounded-xl border p-4 transition-colors",
+                      noteTone
+                        ? noteTone.panel
+                        : "border-primary/25 bg-primary/5",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex items-start gap-2">
+                        <span
+                          className={cn(
+                            "grid size-9 shrink-0 place-items-center rounded-full",
+                            noteTone
+                              ? "bg-background/70 " + noteTone.icon
+                              : "bg-primary/10 text-primary",
+                          )}
+                        >
+                          {noteScreening?.level === "blocked" ? (
+                            <ShieldAlert className="size-4" aria-hidden />
+                          ) : (
+                            <Sparkles className="size-4" aria-hidden />
+                          )}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold">
+                            AI rà soát ghi chú sức khỏe
+                          </p>
+                          <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                            Kiểm tra tiền sử bệnh lý, thuốc đang dùng hoặc sự
+                            cố sức khỏe có thể khiến bạn chưa nên hiến máu hôm
+                            nay.
+                          </p>
+                        </div>
+                      </div>
+
+                      {noteScreening ? (
+                        <Badge variant={noteTone?.badge ?? "neutral"}>
+                          {noteScreening.label}
+                        </Badge>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={reviewNote}
+                        disabled={noteScreeningLoading || submitting}
+                      >
+                        {noteScreeningLoading ? (
+                          <LoaderCircle className="animate-spin" aria-hidden />
+                        ) : (
+                          <Sparkles aria-hidden />
+                        )}
+                        {noteScreeningLoading
+                          ? "Đang rà soát..."
+                          : "Nhờ AI rà soát"}
+                      </Button>
+                      <span className="text-muted-foreground text-xs">
+                        Không thay thế kết luận của nhân viên y tế.
+                      </span>
+                    </div>
+
+                    {noteScreeningError ? (
+                      <p role="alert" className="text-destructive mt-3 text-xs">
+                        {noteScreeningError}
+                      </p>
+                    ) : null}
+
+                    {noteScreening ? (
+                      <div className="mt-3 space-y-2">
+                        {noteScreeningStale ? (
+                          <p className="text-warning text-xs font-medium">
+                            Ghi chú đã thay đổi sau lần rà soát trước. Hãy nhờ
+                            AI rà soát lại.
+                          </p>
+                        ) : null}
+
+                        <p className="text-sm">{noteScreening.summary}</p>
+
+                        {noteScreening.reasons.length > 0 ? (
+                          <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed">
+                            {noteScreening.reasons.map((reason) => (
+                              <li key={reason}>{reason}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+
+                        <p className="text-muted-foreground text-xs leading-relaxed">
+                          {noteScreening.advice}
+                        </p>
+
+                        <p className="text-muted-foreground text-[11px]">
+                          Nguồn:{" "}
+                          {noteScreening.provider === "hybrid"
+                            ? "AI + quy tắc y tế nội bộ"
+                            : "Quy tắc y tế nội bộ"}{" "}
+                          · Độ tin cậy{" "}
+                          {Math.round(noteScreening.confidence * 100)}%
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {noteBlocked ? (
+                    <Alert variant="destructive">
+                      <ShieldAlert />
+                      <AlertTitle>Ghi chú cần được tư vấn y tế</AlertTitle>
+                      <AlertDescription>
+                        AI phát hiện thông tin có thể khiến bạn chưa đủ điều
+                        kiện hiến máu. Hãy chỉnh sửa ghi chú nếu thông tin chưa
+                        chính xác, hoặc liên hệ ban tổ chức / nhân viên y tế để
+                        được tư vấn trước khi gửi hồ sơ.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+
                   {/* --- Tóm tắt hồ sơ ------------------------------- */}
                   <div className="bg-muted/30 border-border/70 rounded-xl border p-4">
                     <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
@@ -1377,7 +1578,9 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                     <Button
                       type="submit"
                       size="lg"
-                      disabled={submitting || !hasAvailableCampaign}
+                      disabled={
+                        submitting || !hasAvailableCampaign || noteBlocked
+                      }
                       className="sm:min-w-44"
                     >
                       {submitting ? (
@@ -1397,6 +1600,14 @@ export default function RegistrationForm({ campaigns, defaults }: Props) {
                 <p className="text-warning text-sm">
                   Hiện không còn chiến dịch nào nhận đăng ký mới. Vui lòng quay
                   lại sau.
+                </p>
+              ) : null}
+
+              {noteBlocked ? (
+                <p className="text-destructive text-sm">
+                  Hồ sơ chưa thể gửi vì ghi chú sức khỏe có dấu hiệu chưa đủ
+                  điều kiện hiến máu. Hãy chỉnh sửa ghi chú hoặc liên hệ ban tổ
+                  chức để được tư vấn.
                 </p>
               ) : null}
             </form>

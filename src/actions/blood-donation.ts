@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { screenDonationNote, type NoteScreening } from "@/lib/ai-screening";
 import { writeAuditLog } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { encryptCccd, safeEqualHash } from "@/lib/crypto";
@@ -13,10 +14,11 @@ import {
   evaluateHealthRules,
   evaluateProfileRules,
   parseBloodPressure,
-  pickLeastCrowdedSlot,
 } from "@/lib/donation-rules";
 import { prisma } from "@/lib/prisma";
+import { pickOptimizedSlot } from "@/lib/slot-optimizer";
 import {
+  DONATION_SLOTS,
   calculateAge,
   donationRegistrationSchema,
   healthCheckSchema,
@@ -54,6 +56,8 @@ export type ValidateProfileData = {
   reasons: string[];
   /** Khung giờ hệ thống phân cho sinh viên. */
   assignedSlot?: string;
+  /** Kết quả AI rà soát ghi chú sức khỏe (nếu sinh viên có ghi chú). */
+  noteScreening?: NoteScreening;
 };
 
 export type EvaluateHealthData = {
@@ -315,6 +319,23 @@ export async function validateProfile(
     const profile = evaluateProfileRules(age, weightKg);
     const encryptedCccd = encryptCccd(cccd);
 
+    // AI rà soát ghi chú sức khỏe trước khi mở transaction để không giữ kết
+    // nối DB trong lúc chờ dịch vụ AI bên ngoài.
+    const noteScreening = await screenDonationNote(note, {
+      useExternal: true,
+    });
+    const noteBlocked = noteScreening.level === "blocked";
+    const eligible = profile.eligible && !noteBlocked;
+    const rejectionReasons = [...profile.reasons];
+
+    if (noteBlocked) {
+      rejectionReasons.push(
+        `Ghi chú sức khỏe có dấu hiệu chưa đủ điều kiện hiến máu: ${
+          noteScreening.reasons[0] ?? noteScreening.summary
+        }`,
+      );
+    }
+
     const currentUser = await prisma.user.findUnique({
       where: { id: session.userId },
       select: { id: true, cccdHash: true },
@@ -432,10 +453,13 @@ export async function validateProfile(
         );
 
         const assignedSlot =
-          pickLeastCrowdedSlot(preferredSlots, Object.fromEntries(slotCounts)) ??
-          preferredSlots[0];
+          pickOptimizedSlot(
+            preferredSlots,
+            Object.fromEntries(slotCounts),
+            Math.max(1, Math.ceil(maxSlots / DONATION_SLOTS.length)),
+          ) ?? preferredSlots[0];
 
-        const status = profile.eligible ? "APPROVED" : "REJECTED";
+        const status = eligible ? "APPROVED" : "REJECTED";
 
         const registration = await tx.registration.create({
           data: {
@@ -514,7 +538,7 @@ export async function validateProfile(
     }
 
     await writeAuditLog({
-      action: profile.eligible
+      action: eligible
         ? "REGISTRATION_APPROVED"
         : "REGISTRATION_REJECTED",
       userId: session.userId,
@@ -526,22 +550,29 @@ export async function validateProfile(
         weightKg,
         preferredSlots,
         assignedSlot: outcome.assignedSlot,
-        reasons: profile.reasons,
+        reasons: rejectionReasons,
+        noteScreening: {
+          level: noteScreening.level,
+          provider: noteScreening.provider,
+          categories: noteScreening.categories,
+          flagged: noteScreening.flagged,
+        },
       },
     });
 
-    if (!profile.eligible) {
+    if (!eligible) {
       return {
         success: false,
         code: "PROFILE_REJECTED",
-        message: `Hồ sơ chưa đủ điều kiện hiến máu: ${profile.reasons.join("; ")}.`,
+        message: `Hồ sơ chưa đủ điều kiện hiến máu: ${rejectionReasons.join("; ")}.`,
         data: {
           registrationId: outcome.registrationId,
           status: "REJECTED",
           eligible: false,
           age,
-          reasons: profile.reasons,
+          reasons: rejectionReasons,
           assignedSlot: outcome.assignedSlot,
+          noteScreening,
         },
       };
     }
@@ -557,6 +588,7 @@ export async function validateProfile(
         age,
         reasons: [],
         assignedSlot: outcome.assignedSlot,
+        noteScreening,
       },
     };
   } catch (error) {

@@ -12,6 +12,7 @@ import {
 import CccdUploader from "@/components/CccdUploader";
 import CheckInToolbar from "@/components/CheckInToolbar";
 import RefreshButton from "@/components/RefreshButton";
+import ScheduleOptimizer from "@/components/ScheduleOptimizer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -460,7 +461,12 @@ export default async function OrganizerCheckInPage({
           </Card>
         </div>
 
-        <aside>
+        <aside className="space-y-4">
+          <ScheduleOptimizer
+            key={`optimizer-${selectedCampaign.id}`}
+            campaignId={selectedCampaign.id}
+            campaignName={selectedCampaign.name}
+          />
           <CccdUploader
             key={selectedCampaign.id}
             campaignId={selectedCampaign.id}

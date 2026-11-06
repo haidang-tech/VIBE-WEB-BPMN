@@ -446,6 +446,119 @@ async function resolveUser(
   return { ...match, manual: false };
 }
 
+type AuthSession = NonNullable<Awaited<ReturnType<typeof getSession>>>;
+type CheckInMethod = "OCR" | "MANUAL";
+type CheckInSource = OcrSource | "MANUAL";
+
+/**
+ * Phần lõi dùng chung cho check-in bằng OCR và check-in nhập tay:
+ * chọn hồ sơ APPROVED, cập nhật trạng thái trong transaction serializable,
+ * ghi audit và trả kết quả cho client.
+ */
+async function completeCheckIn(params: {
+  session: AuthSession;
+  match: Extract<ResolvedUser, { type: "matched" }>;
+  source: CheckInSource;
+  method: CheckInMethod;
+}): Promise<OcrResult> {
+  const { session, match, source, method } = params;
+  const matchedCccd = match.cccd;
+  const user = match.user;
+
+  const target =
+    user.registrations.find((item) => item.status === "APPROVED") ??
+    user.registrations[0];
+
+  if (target.status !== "APPROVED") {
+    return statusFailure(target.status);
+  }
+
+  const outcome = await prisma.$transaction<TransactionOutcome>(
+    async (tx) => {
+      const fresh = await tx.registration.findUnique({
+        where: { id: target.id },
+        select: { id: true, status: true },
+      });
+
+      if (!fresh) {
+        return { type: "not_found" };
+      }
+
+      if (fresh.status !== "APPROVED") {
+        return { type: "invalid_status", status: fresh.status };
+      }
+
+      const checkInTime = new Date();
+
+      const updated = await tx.registration.update({
+        where: { id: fresh.id },
+        data: {
+          status: "CHECKED_IN",
+          checkInTime,
+        },
+        select: {
+          id: true,
+          checkInTime: true,
+          campaignId: true,
+          campaign: { select: { name: true, date: true } },
+        },
+      });
+
+      return {
+        type: "updated",
+        registrationId: updated.id,
+        checkInTime: updated.checkInTime ?? checkInTime,
+        campaignId: updated.campaignId,
+        campaignName: updated.campaign.name,
+        campaignDate: updated.campaign.date,
+      };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+
+  if (outcome.type === "not_found") {
+    return {
+      success: false,
+      code: "REGISTRATION_NOT_FOUND",
+      message: "Không tìm thấy hồ sơ đăng ký.",
+    };
+  }
+
+  if (outcome.type === "invalid_status") {
+    return statusFailure(outcome.status);
+  }
+
+  await writeAuditLog({
+    action: method === "MANUAL" ? "MANUAL_CHECK_IN" : "OCR_CHECK_IN",
+    userId: session.userId,
+    details: {
+      registrationId: outcome.registrationId,
+      campaignId: outcome.campaignId,
+      method,
+      source,
+      role: session.role,
+      cccdLast4: matchedCccd.slice(-4),
+    },
+  });
+
+  return {
+    success: true,
+    code: "CHECKED_IN",
+    message: `Đã check-in thành công cho ${user.name}.`,
+    data: {
+      registrationId: outcome.registrationId,
+      studentName: user.name,
+      studentEmail: user.email,
+      cccdMasked: maskCccd(matchedCccd),
+      campaignId: outcome.campaignId,
+      campaignName: outcome.campaignName,
+      campaignDate: outcome.campaignDate.toISOString(),
+      status: "CHECKED_IN",
+      checkInTime: outcome.checkInTime.toISOString(),
+    },
+  };
+}
+
 export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
   try {
     const session = await getSession();
@@ -515,101 +628,12 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
       };
     }
 
-    const matchedCccd = match.cccd;
-    const user = match.user;
-
-    const target =
-      user.registrations.find((item) => item.status === "APPROVED") ??
-      user.registrations[0];
-
-    if (target.status !== "APPROVED") {
-      return statusFailure(target.status);
-    }
-
-    const outcome = await prisma.$transaction<TransactionOutcome>(
-      async (tx) => {
-        const fresh = await tx.registration.findUnique({
-          where: { id: target.id },
-          select: { id: true, status: true },
-        });
-
-        if (!fresh) {
-          return { type: "not_found" };
-        }
-
-        if (fresh.status !== "APPROVED") {
-          return { type: "invalid_status", status: fresh.status };
-        }
-
-        const checkInTime = new Date();
-
-        const updated = await tx.registration.update({
-          where: { id: fresh.id },
-          data: {
-            status: "CHECKED_IN",
-            checkInTime,
-          },
-          select: {
-            id: true,
-            checkInTime: true,
-            campaignId: true,
-            campaign: { select: { name: true, date: true } },
-          },
-        });
-
-        return {
-          type: "updated",
-          registrationId: updated.id,
-          checkInTime: updated.checkInTime ?? checkInTime,
-          campaignId: updated.campaignId,
-          campaignName: updated.campaign.name,
-          campaignDate: updated.campaign.date,
-        };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
-
-    if (outcome.type === "not_found") {
-      return {
-        success: false,
-        code: "REGISTRATION_NOT_FOUND",
-        message: "Không tìm thấy hồ sơ đăng ký.",
-      };
-    }
-
-    if (outcome.type === "invalid_status") {
-      return statusFailure(outcome.status);
-    }
-
-    await writeAuditLog({
-      action: "OCR_CHECK_IN",
-      userId: session.userId,
-      details: {
-        registrationId: outcome.registrationId,
-        campaignId: outcome.campaignId,
-        method: "OCR",
-        source,
-        role: session.role,
-        cccdLast4: matchedCccd.slice(-4),
-      },
+    return completeCheckIn({
+      session,
+      match,
+      source,
+      method: "OCR",
     });
-
-    return {
-      success: true,
-      code: "CHECKED_IN",
-      message: `Đã check-in thành công cho ${user.name}.`,
-      data: {
-        registrationId: outcome.registrationId,
-        studentName: user.name,
-        studentEmail: user.email,
-        cccdMasked: maskCccd(matchedCccd),
-        campaignId: outcome.campaignId,
-        campaignName: outcome.campaignName,
-        campaignDate: outcome.campaignDate.toISOString(),
-        status: "CHECKED_IN",
-        checkInTime: outcome.checkInTime.toISOString(),
-      },
-    };
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -629,6 +653,133 @@ export async function processCccdOcr(formData: FormData): Promise<OcrResult> {
       success: false,
       code: "INTERNAL_ERROR",
       message: "Không thể xử lý ảnh CCCD. Vui lòng thử lại sau.",
+    };
+  }
+}
+
+const manualCheckInSchema = z.object({
+  campaignId: campaignIdSchema,
+  cccd: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/[\s.-]/g, ""))
+    .refine(
+      (value) => /^\d{12}$/.test(value),
+      "CCCD phải gồm đúng 12 chữ số",
+    ),
+});
+
+/**
+ * Check-in thủ công khi camera / OCR gặp sự cố.
+ *
+ * Ban tổ chức nhập trực tiếp 12 số CCCD in trên thẻ. Server vẫn đối chiếu
+ * blind index và chỉ check-in khi khớp duy nhất một hồ sơ APPROVED trong
+ * chiến dịch, nên không thể check-in nhầm người.
+ */
+export async function manualCheckIn(input: {
+  campaignId: string;
+  cccd: string;
+}): Promise<OcrResult> {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return {
+        success: false,
+        code: "UNAUTHENTICATED",
+        message: "Bạn cần đăng nhập để thực hiện check-in.",
+      };
+    }
+
+    if (session.role !== "ORGANIZER" && session.role !== "MEDICAL") {
+      return {
+        success: false,
+        code: "FORBIDDEN",
+        message:
+          "Chỉ Ban tổ chức hoặc nhân viên y tế mới có quyền check-in thủ công.",
+      };
+    }
+
+    const parsed = manualCheckInSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        code: "INVALID_CCCD",
+        message:
+          parsed.error.issues[0]?.message ??
+          "Số CCCD phải gồm đúng 12 chữ số.",
+      };
+    }
+
+    const { campaignId, cccd } = parsed.data;
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true },
+    });
+
+    if (!campaign) {
+      return {
+        success: false,
+        code: "CAMPAIGN_NOT_FOUND",
+        message: "Không tìm thấy chiến dịch.",
+      };
+    }
+
+    const match = await resolveUser(cccd, [], campaignId);
+
+    if (match.type === "not_found") {
+      return {
+        success: false,
+        code: "CCCD_NOT_FOUND",
+        message:
+          "Không tìm thấy sinh viên khớp với số CCCD đã nhập. Vui lòng kiểm tra lại số trên thẻ hoặc hồ sơ.",
+      };
+    }
+
+    if (match.type === "no_registration") {
+      return {
+        success: false,
+        code: "REGISTRATION_NOT_FOUND",
+        message: "Sinh viên này chưa đăng ký chiến dịch đang chọn.",
+      };
+    }
+
+    if (match.type === "ambiguous") {
+      return {
+        success: false,
+        code: "AMBIGUOUS_CCCD",
+        message:
+          "Số CCCD khớp nhiều hồ sơ. Vui lòng kiểm tra lại hoặc dùng ảnh CCCD.",
+      };
+    }
+
+    return completeCheckIn({
+      session,
+      match,
+      source: "MANUAL",
+      method: "MANUAL",
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2034"
+    ) {
+      return {
+        success: false,
+        code: "CONFLICT",
+        message:
+          "Hồ sơ đang được xử lý bởi thao tác khác. Vui lòng thử lại sau vài giây.",
+      };
+    }
+
+    console.error("[manualCheckIn] Lỗi:", error);
+
+    return {
+      success: false,
+      code: "INTERNAL_ERROR",
+      message: "Không thể check-in thủ công. Vui lòng thử lại sau.",
     };
   }
 }

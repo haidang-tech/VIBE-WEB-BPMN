@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import SignatureBackdrop from "@/components/SignatureBackdrop";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -25,7 +26,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="app-surface min-h-screen bg-background font-sans text-foreground antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        <SignatureBackdrop />
+        <div className="relative z-10">
+          <ToastProvider>{children}</ToastProvider>
+        </div>
       </body>
     </html>
   );
