@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HeroHeart3D from "./HeroHeart3D";
 import { BOOKING_HREF } from "./constants";
 
 const STATS = [
@@ -166,58 +167,7 @@ export default function HeroSection() {
                 </div>
               </div>
 
-              <div className="relative mx-auto my-5 grid size-60 place-items-center sm:size-72">
-                <div
-                  aria-hidden
-                  className="absolute inset-0 rounded-full border border-white/15"
-                />
-                <div
-                  aria-hidden
-                  className="absolute inset-7 rounded-full border border-white/10"
-                />
-                <div
-                  aria-hidden
-                  className="absolute inset-14 rounded-full bg-white/5 blur-md"
-                />
-
-                <svg
-                  viewBox="0 0 240 240"
-                  className="relative size-48 drop-shadow-[0_24px_40px_rgba(76,5,25,0.35)] sm:size-56"
-                  role="img"
-                  aria-label="Trái tim và giọt máu – biểu tượng hiến máu"
-                >
-                  <defs>
-                    <linearGradient id="hero-heart" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#ffffff" />
-                      <stop offset="100%" stopColor="#ffe4e6" />
-                    </linearGradient>
-                    <linearGradient id="hero-drop" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fb7185" />
-                      <stop offset="100%" stopColor="#be123c" />
-                    </linearGradient>
-                  </defs>
-
-                  <path
-                    d="M120 208C62 164 24 126 24 86C24 54 48 32 78 32C98 32 113 43 120 57C127 43 142 32 162 32C192 32 216 54 216 86C216 126 178 164 120 208Z"
-                    fill="url(#hero-heart)"
-                  />
-                  <path
-                    d="M120 104C120 104 90 142 90 162C90 179 103 192 120 192C137 192 150 179 150 162C150 142 120 104 120 104Z"
-                    fill="url(#hero-drop)"
-                  />
-                  <path
-                    d="M108 148C108 148 100 158 98 166"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    opacity="0.55"
-                  />
-                  <circle cx="164" cy="82" r="5" fill="#fecdd3" opacity="0.85" />
-                  <circle cx="76" cy="110" r="3.5" fill="#fecdd3" opacity="0.7" />
-                  <circle cx="178" cy="138" r="3" fill="#fecdd3" opacity="0.6" />
-                </svg>
-              </div>
+              <HeroHeart3D />
 
               <div className="relative">
                 <svg

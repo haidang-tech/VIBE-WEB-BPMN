@@ -330,6 +330,96 @@
       0 1px 2px oklch(0 0 0 / 0.3),
       0 18px 40px -20px oklch(0 0 0 / 0.6);
   }
+
+  /* ---------------------------------------------------------------------
+   * Hero: trái tim 3D đập theo nhịp, quầng sáng và giọt máu lỏng.
+   * Chỉ animation phần trung tâm; nền đỏ và nội dung chữ giữ nguyên.
+   * ------------------------------------------------------------------- */
+  .hero-heart-stage {
+    perspective: 900px;
+    transform-style: preserve-3d;
+  }
+
+  .hero-heart-beat {
+    transform-origin: 50% 56%;
+    animation: hero-heartbeat 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+    will-change: transform, filter;
+  }
+
+  .hero-heart-glow {
+    animation: hero-glow-pulse 1.8s ease-in-out infinite;
+    will-change: opacity, transform;
+  }
+
+  .hero-heart-aura {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(255, 255, 255, 0.16) 48deg,
+      transparent 110deg,
+      rgba(255, 228, 230, 0.22) 190deg,
+      transparent 260deg,
+      rgba(255, 255, 255, 0.12) 330deg,
+      transparent 360deg
+    );
+    filter: blur(18px);
+    animation: hero-aura-spin 18s linear infinite;
+  }
+
+  .hero-heart-ring {
+    animation: hero-ring-pulse 3.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+    will-change: transform, opacity;
+  }
+
+  .hero-heart-ring-delay {
+    animation-delay: 1.8s;
+  }
+
+  .hero-liquid-glint {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: hero-liquid-drift 2.6s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .hero-liquid-glint-slow {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: hero-liquid-drift 4.2s ease-in-out infinite reverse;
+    will-change: transform, opacity;
+  }
+
+  .hero-heart-shadow {
+    animation: hero-shadow-breathe 1.8s ease-in-out infinite;
+  }
+
+  /* Điện tâm đồ: đường nền mờ + một đoạn sáng chạy dọc theo dạng sóng. */
+  .hero-ecg-strip {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 10%,
+      #000 90%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 10%,
+      #000 90%,
+      transparent 100%
+    );
+  }
+
+  .hero-ecg-base {
+    opacity: 0.42;
+  }
+
+  .hero-ecg-spark {
+    stroke-dasharray: 0.16 0.84;
+    animation: hero-ecg-sweep 2.6s linear infinite;
+    will-change: stroke-dashoffset;
+  }
 }
 
 @keyframes mesh-drift {
@@ -361,6 +451,110 @@
   }
 }
 
+/* Nhịp tim "lub-dub" mạnh: hai nhịp co bóp rõ rồi nghỉ, lặp lại 1.8s. */
+@keyframes hero-heartbeat {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  7% {
+    transform: scale(1.14) rotate(-0.6deg);
+  }
+  14% {
+    transform: scale(1.02) rotate(0.35deg);
+  }
+  22% {
+    transform: scale(1.09) rotate(-0.25deg);
+  }
+  34% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes hero-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  7% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+  18% {
+    opacity: 0.58;
+    transform: scale(0.99);
+  }
+  27% {
+    opacity: 0.92;
+    transform: scale(1.1);
+  }
+  42% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes hero-ring-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  8% {
+    opacity: 0.7;
+  }
+  58% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes hero-liquid-drift {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translate3d(-4px, 5px, 0) scale(0.9);
+  }
+  50% {
+    opacity: 0.78;
+    transform: translate3d(5px, -6px, 0) scale(1.14);
+  }
+}
+
+@keyframes hero-shadow-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleX(0.88);
+  }
+  7% {
+    opacity: 0.68;
+    transform: scaleX(1.12);
+  }
+  34% {
+    opacity: 0.35;
+    transform: scaleX(0.88);
+  }
+}
+
+@keyframes hero-ecg-sweep {
+  from {
+    stroke-dashoffset: 0.16;
+  }
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+
+@keyframes hero-aura-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-surface {
     animation: none;
@@ -375,6 +569,17 @@
   }
 
   .skeleton-shimmer::after {
+    animation: none;
+  }
+
+  .hero-heart-beat,
+  .hero-heart-glow,
+  .hero-heart-aura,
+  .hero-heart-ring,
+  .hero-liquid-glint,
+  .hero-liquid-glint-slow,
+  .hero-heart-shadow,
+  .hero-ecg-spark {
     animation: none;
   }
 }
