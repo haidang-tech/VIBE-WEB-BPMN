@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Droplet, Menu, X } from "lucide-react";
+import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,8 @@ type NavbarProps = {
   /** Đích quay lại bảng điều khiển khi người dùng đã đăng nhập. */
   portalHref?: string | null;
   portalLabel?: string;
+  /** Hiển thị nút đăng xuất khi người dùng đã đăng nhập. */
+  signedIn?: boolean;
 };
 
 const NAV_LINKS = [
@@ -25,6 +28,7 @@ const NAV_LINKS = [
 export default function Navbar({
   portalHref = null,
   portalLabel = "Vào trang của tôi",
+  signedIn = false,
 }: NavbarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -130,6 +134,15 @@ export default function Navbar({
             </Link>
           )}
 
+          {signedIn ? (
+            <LogoutButton
+              redirectTo="/"
+              variant="ghost"
+              size="sm"
+              className="hidden rounded-xl text-slate-600 hover:translate-y-0 hover:bg-slate-100/80 hover:text-slate-950 lg:inline-flex dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+            />
+          ) : null}
+
           <ThemeToggle className="hidden sm:inline-flex" />
 
           <Button
@@ -191,24 +204,35 @@ export default function Navbar({
               );
             })}
 
-            <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-              {portalHref ? (
-                <Link
-                  href={portalHref}
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
-                >
-                  {portalLabel}
-                </Link>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
-                >
-                  Đăng nhập
-                </Link>
-              )}
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-200/80 pt-3 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                {portalHref ? (
+                  <Link
+                    href={portalHref}
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
+                  >
+                    {portalLabel}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
+                  >
+                    Đăng nhập
+                  </Link>
+                )}
+
+                {signedIn ? (
+                  <LogoutButton
+                    redirectTo="/"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-xl text-slate-600 hover:translate-y-0 hover:bg-slate-100/80 hover:text-slate-950 [&>span]:inline dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+                  />
+                ) : null}
+              </div>
               <ThemeToggle />
             </div>
           </nav>
